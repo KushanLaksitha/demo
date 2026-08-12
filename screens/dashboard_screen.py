@@ -122,11 +122,14 @@ KV = """
             icon: "account-circle"
             on_tab_press: root.load_profile()
 
-            MDBoxLayout:
-                id: profile_box
-                orientation: "vertical"
-                padding: dp(24)
-                spacing: dp(14)
+            ScrollView:
+                MDBoxLayout:
+                    id: profile_box
+                    orientation: "vertical"
+                    padding: dp(24)
+                    spacing: dp(14)
+                    size_hint_y: None
+                    height: self.minimum_height
 """
 
 Builder.load_string(KV)
@@ -381,6 +384,9 @@ class DashboardScreen(Screen):
                                   theme_text_color="Custom", text_color=(0.3, 0.6, 0.35, 1)))
         box.add_widget(card)
 
+        edit_profile_btn = MDRaisedButton(text="Edit Profile Details", size_hint_x=1,
+                                            md_bg_color=(0.3, 0.6, 0.35, 1),
+                                            on_release=self.open_edit_profile_dialog)
         edit_btn = MDRaisedButton(text="Edit followed crops", size_hint_x=1,
                                     md_bg_color=(0.4, 0.73, 0.42, 1), on_release=self.edit_crops)
         feedback_btn = MDRaisedButton(text="Send feedback", size_hint_x=1,
@@ -388,10 +394,107 @@ class DashboardScreen(Screen):
                                         on_release=self.go_feedback)
         logout_btn = MDRaisedButton(text="Log out", size_hint_x=1,
                                       md_bg_color=(0.9, 0.22, 0.21, 1), on_release=self.logout)
+        box.add_widget(edit_profile_btn)
         box.add_widget(edit_btn)
         box.add_widget(feedback_btn)
         box.add_widget(logout_btn)
-        stagger_fade_in([card, edit_btn, feedback_btn, logout_btn], step=0.05, duration=0.25)
+        stagger_fade_in([card, edit_profile_btn, edit_btn, feedback_btn, logout_btn], step=0.05, duration=0.25)
+        center_scroll_content(box.parent, box)
+
+    def open_edit_profile_dialog(self, *args):
+        from kivymd.uix.dialog import MDDialog
+        from kivymd.uix.button import MDFlatButton, MDRaisedButton
+        from kivymd.uix.textfield import MDTextField
+        from kivymd.uix.boxlayout import MDBoxLayout
+        from kivymd.uix.menu import MDDropdownMenu
+        from database.data_service import get_all_regions, update_user_profile
+
+        dialog_box = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=[dp(12), dp(12), dp(12), dp(12)],
+            size_hint_y=None,
+            height=dp(200),
+        )
+
+        fn_input = MDTextField(
+            text=self.user.get("first_name", ""),
+            hint_text="First Name",
+            size_hint_y=None,
+            height=dp(50),
+        )
+        ln_input = MDTextField(
+            text=self.user.get("last_name", ""),
+            hint_text="Last Name",
+            size_hint_y=None,
+            height=dp(50),
+        )
+
+        regions = get_all_regions()
+        selected_region = {"id": self.user.get("region_id")}
+
+        curr_dist = self.user.get("district") or "Select District"
+        region_btn = MDRaisedButton(
+            text=f"District: {curr_dist}  ▾",
+            size_hint_x=1,
+            md_bg_color=(0.91, 0.96, 0.91, 1),
+            text_color=(0.1, 0.1, 0.1, 1),
+        )
+
+        def pick_region(r_id, r_dist, menu):
+            selected_region["id"] = r_id
+            region_btn.text = f"District: {r_dist}  ▾"
+            menu.dismiss()
+
+        def open_region_menu(*_):
+            items = [
+                {
+                    "text": f"{dist} ({rname})",
+                    "viewclass": "OneLineListItem",
+                    "on_release": lambda rid=rid, rdist=dist: pick_region(rid, rdist, menu)
+                }
+                for rid, rname, dist in regions
+            ]
+            menu = MDDropdownMenu(caller=region_btn, items=items, width_mult=4)
+            menu.open()
+
+        region_btn.on_release = open_region_menu
+
+        dialog_box.add_widget(fn_input)
+        dialog_box.add_widget(ln_input)
+        dialog_box.add_widget(region_btn)
+
+        def save_profile(*_):
+            fn = fn_input.text.strip()
+            ln = ln_input.text.strip()
+            if not fn or not ln:
+                show_snackbar("First and Last name cannot be empty.")
+                return
+            ok, res = update_user_profile(
+                self.user["user_id"],
+                first_name=fn,
+                last_name=ln,
+                region_id=selected_region["id"],
+            )
+            if ok:
+                self.user = res
+                self.app.current_user = res
+                self.edit_dialog.dismiss()
+                self.load_profile()
+                show_snackbar("Profile updated successfully!")
+            else:
+                show_snackbar(f"Failed to update profile: {res}")
+
+        self.edit_dialog = MDDialog(
+            title="Edit Profile Details",
+            type="custom",
+            content_cls=dialog_box,
+            buttons=[
+                MDFlatButton(text="CANCEL", on_release=lambda x: self.edit_dialog.dismiss()),
+                MDRaisedButton(text="SAVE", md_bg_color=(0.3, 0.6, 0.35, 1), on_release=save_profile),
+            ],
+        )
+        self.edit_dialog.open()
 
     def edit_crops(self, *args):
         self.manager.transition.direction = "left"

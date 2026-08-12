@@ -245,6 +245,42 @@ def mark_feedback_reviewed(feedback_id):
         db.close()
 
 
+
+@db_safe(default=lambda: (False, "Database error"))
+def update_user_profile(user_id, first_name, last_name, region_id=None):
+    """Updates user first name, last name, and region in DB, returning (True, updated_user_dict)."""
+    db = get_session()
+    try:
+        user = db.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return False, "User not found."
+        if first_name and first_name.strip():
+            user.first_name = first_name.strip()
+        if last_name and last_name.strip():
+            user.last_name = last_name.strip()
+        if region_id:
+            user.region_id = region_id
+        db.commit()
+
+        region = db.query(Region).filter_by(region_id=user.region_id).first() if user.region_id else None
+        updated = {
+            "user_id": user.user_id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "user_type": user.user_type,
+            "region_id": user.region_id,
+            "region_name": region.region_name if region else None,
+            "district": region.district if region else None,
+        }
+        return True, updated
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+    finally:
+        db.close()
+
+
 @db_safe(default=list)
 def get_market_summary(region_id=None):
     """Latest price per crop for the dashboard 'at a glance' cards."""
@@ -269,3 +305,5 @@ def get_market_summary(region_id=None):
         return summary
     finally:
         db.close()
+
+
