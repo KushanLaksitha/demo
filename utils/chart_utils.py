@@ -1,11 +1,9 @@
-"""
-Chart helpers — build small matplotlib figures styled to match the
-white / light-green AgriSense theme, wrapped for use inside KivyMD screens.
-"""
+import io
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from kivy_garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
+from kivy.core.image import Image as CoreImage
+from kivy.uix.image import Image
 
 GREEN = "#66BB6A"
 GREEN_DARK = "#4C9950"
@@ -22,6 +20,25 @@ def _style_axes(ax):
     ax.grid(axis="y", color="#EEEEEE", linewidth=0.8)
 
 
+def _fig_to_widget(fig):
+    """Converts a matplotlib Figure into a Kivy Image widget via PNG buffer.
+    This guarantees exact pixel rendering, preventing OpenGL texture stride/skew bugs."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=180, bbox_inches="tight", facecolor=fig.get_facecolor(), edgecolor="none")
+    buf.seek(0)
+    plt.close(fig)
+
+    core_img = CoreImage(buf, ext="png")
+    img = Image(
+        texture=core_img.texture,
+        allow_stretch=True,
+        keep_ratio=True,
+        size_hint=(1, 1),
+        pos_hint={"center_x": 0.5, "center_y": 0.5},
+    )
+    return img
+
+
 def build_line_chart(dates, values, title="", y_label="LKR / kg"):
     """dates: list of date/str labels, values: list of numbers."""
     fig, ax = plt.subplots(figsize=(5.2, 3), dpi=100)
@@ -36,7 +53,7 @@ def build_line_chart(dates, values, title="", y_label="LKR / kg"):
         ax.set_xticklabels([dates[i] for i in range(0, len(dates), step)], rotation=30, ha="right")
     _style_axes(ax)
     fig.tight_layout()
-    return FigureCanvasKivyAgg(fig)
+    return _fig_to_widget(fig)
 
 
 def build_bar_chart(labels, values, title="", y_label="kg"):
@@ -48,7 +65,7 @@ def build_bar_chart(labels, values, title="", y_label="kg"):
     plt.setp(ax.get_xticklabels(), rotation=30, ha="right")
     _style_axes(ax)
     fig.tight_layout()
-    return FigureCanvasKivyAgg(fig)
+    return _fig_to_widget(fig)
 
 
 def build_comparison_bar(labels, series_a, series_b, label_a, label_b, title="", y_label=""):
@@ -67,4 +84,5 @@ def build_comparison_bar(labels, series_a, series_b, label_a, label_b, title="",
     ax.legend(fontsize=8, frameon=False)
     _style_axes(ax)
     fig.tight_layout()
-    return FigureCanvasKivyAgg(fig)
+    return _fig_to_widget(fig)
+

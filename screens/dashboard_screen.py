@@ -93,6 +93,8 @@ KV = """
                     size_hint_y: None
                     height: dp(48)
                     spacing: dp(8)
+                    adaptive_width: True
+                    pos_hint: {"center_x": 0.5}
                     MDRaisedButton:
                         id: crop_button
                         text: "Crop  ▾"
@@ -328,7 +330,9 @@ class DashboardScreen(Screen):
             data = get_price_history(self.history_crop_id, region_id=region_id, weeks=16)
             if not data:
                 box.add_widget(MDLabel(text="No price history available yet.",
-                                         theme_text_color="Custom", text_color=(0.42, 0.42, 0.42, 1)))
+                                         theme_text_color="Custom", text_color=(0.42, 0.42, 0.42, 1),
+                                         halign="center"))
+                center_scroll_content(box.parent, box)
                 return
             dates, values = zip(*data)
             chart = build_line_chart(list(dates), list(values),
@@ -338,16 +342,21 @@ class DashboardScreen(Screen):
             data = get_production_history(self.history_crop_id, region_id=region_id, weeks=16)
             if not data:
                 box.add_widget(MDLabel(text="No production history available yet.",
-                                         theme_text_color="Custom", text_color=(0.42, 0.42, 0.42, 1)))
+                                         theme_text_color="Custom", text_color=(0.42, 0.42, 0.42, 1),
+                                         halign="center"))
+                center_scroll_content(box.parent, box)
                 return
             dates, values = zip(*data)
             chart = build_bar_chart(list(dates), list(values),
                                       title=f"{self.history_crop_name} production — last 16 weeks",
                                       y_label="kg")
         chart.size_hint_y = None
-        chart.height = dp(280)
+        chart.height = dp(320)
+        chart.size_hint_x = 1
+        chart.pos_hint = {"center_x": 0.5}
         box.add_widget(chart)
         fade_in(chart, duration=0.3)
+        center_scroll_content(box.parent, box)
 
     # ---------------- PROFILE ----------------
     def load_profile(self):
