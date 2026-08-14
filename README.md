@@ -11,6 +11,7 @@
 
 ## 📋 Table of Contents
 
+- [Screenshots](#-screenshots)
 - [Overview & Key Features](#-overview--key-features)
 - [System Architecture](#-system-architecture)
 - [Technology Stack](#-technology-stack)
@@ -25,6 +26,34 @@
 - [Machine Learning Integration](#-machine-learning-integration)
 - [Database Schema & Migrations](#-database-schema--migrations)
 - [Author & License](#-author--license)
+
+---
+
+## 📸 Screenshots
+
+### 🔐 Authentication & Onboarding
+
+| Login Screen | Crop Selection |
+|:---:|:---:|
+| ![Login Screen](screenshots/Homepage.png) | ![Crop Selection](screenshots/editCrops.png) |
+
+### 📊 Farmer Dashboard
+
+| Home Dashboard | For You — Recommendations | Alerts |
+|:---:|:---:|:---:|
+| ![Dashboard](screenshots/dashboard-farmer.png) | ![For You](screenshots/forYou.png) | ![Alerts](screenshots/alerts.png) |
+
+### 📈 History & Analytics
+
+| Beans — Price Trend (16 Weeks) | Beans — Production Volume (16 Weeks) |
+|:---:|:---:|
+| ![Price History](screenshots/history-beans-price.png) | ![Production History](screenshots/history=beans-production.png) |
+
+### 👤 Profile & Settings
+
+| Profile | Edit Profile | Feedback |
+|:---:|:---:|:---:|
+| ![Profile](screenshots/profile.png) | ![Edit Profile](screenshots/editprofile.png) | ![Feedback](screenshots/feedback.png) |
 
 ---
 
