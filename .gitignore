@@ -68,3 +68,5 @@ bin/
 *.swo
 .DS_Store
 Thumbs.db
+agrisense.db
+

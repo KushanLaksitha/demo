@@ -37,11 +37,21 @@
 |:---:|:---:|
 | ![Login Screen](screenshots/Homepage.png) | ![Crop Selection](screenshots/editCrops.png) |
 
-### 📊 Farmer Dashboard
+### 📊 Role-Based Dashboards
 
-| Home Dashboard | For You — Recommendations | Alerts |
-|:---:|:---:|:---:|
-| ![Dashboard](screenshots/dashboard-farmer.png) | ![For You](screenshots/forYou.png) | ![Alerts](screenshots/alerts.png) |
+| Admin Dashboard | Farmer Dashboard |
+|:---:|:---:|
+| ![Admin Dashboard](screenshots/dashboard-admin.png) | ![Farmer Dashboard](screenshots/dashboard-farmer.png) |
+
+| Policymaker Dashboard | Trader Dashboard |
+|:---:|:---:|
+| ![Policymaker Dashboard](screenshots/dashboard-policymaker.png) | ![Trader Dashboard](screenshots/dashboard-trader.png) |
+
+### 🔔 Insights & Alerts
+
+| For You — Recommendations | Alerts |
+|:---:|:---:|
+| ![For You](screenshots/forYou.png) | ![Alerts](screenshots/alerts.png) |
 
 ### 📈 History & Analytics
 
