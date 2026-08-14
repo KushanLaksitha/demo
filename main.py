@@ -73,6 +73,9 @@ class AgriSenseApp(MDApp):
         if self.current_user["user_type"] == "admin":
             sm.current = "admin_dashboard"
             return
+        if self.current_user["user_type"] in ("trader", "policymaker"):
+            sm.current = "dashboard"
+            return
         has_crops = bool(get_user_preferred_crop_ids(self.current_user["user_id"]))
         sm.current = "dashboard" if has_crops else "crop_selection"
 

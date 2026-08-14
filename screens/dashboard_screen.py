@@ -226,6 +226,8 @@ class DashboardScreen(Screen):
                 self.manager.transition.direction = "right"
                 self.manager.current = "login"
             return
+        if self.ids.get("bottom_nav"):
+            self.ids.bottom_nav.switch_tab("home")
         self.crops = get_all_crops()
         pref_ids = get_user_preferred_crop_ids(self.user["user_id"])
         self.followed_crop_ids = pref_ids or ([c[0] for c in self.crops] if self.crops else [])
