@@ -241,137 +241,442 @@ class DashboardScreen(Screen):
     # ══════════════════════════════════════════════════════════════════════
     def load_home(self):
         from kivymd.uix.card import MDCard
-        from kivymd.uix.label import MDLabel
+        from kivymd.uix.label import MDLabel, MDIcon
         from kivymd.uix.boxlayout import MDBoxLayout
-        from kivymd.uix.button import MDIconButton
+        from kivymd.uix.button import MDIconButton, MDTextButton
+        from kivy.graphics import Color, Ellipse
 
         box = self.ids.home_box
         box.clear_widgets()
+        box.padding = (dp(16), dp(16), dp(16), dp(24))
+        box.spacing = dp(14)
         cards = []
 
-        # ── gradient header banner ─────────────────────────────────────
-        header = MDCard(
-            orientation="vertical",
-            size_hint_y=None, height=dp(140),
-            radius=[0, 0, 24, 24],
-            elevation=3,
-            md_bg_color=(0.22, 0.60, 0.28, 1),
-            padding=(dp(18), dp(16), dp(18), dp(14)),
-            spacing=dp(4),
+        # ── 1. HEADER SECTION (WELCOME BACK / Hello, Farmer + Profile Avatar) ──
+        header_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(54),
+            spacing=dp(10),
         )
-        # draw a lighter ellipse in header for gradient feel
-        from kivy.graphics import Color, Ellipse
-        with header.canvas.before:
-            Color(0.38, 0.75, 0.40, 0.35)
-            header._ellipse = Ellipse(pos=(-20, 30), size=(220, 160))
 
-        role = self.user["user_type"]
-        name_row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(36))
+        title_box = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(2),
+        )
+        welcome_lbl = MDLabel(
+            text="WELCOME BACK",
+            font_style="Caption",
+            bold=True,
+            theme_text_color="Custom",
+            text_color=(0.18, 0.52, 0.32, 1),
+            size_hint_y=None, height=dp(16),
+        )
+        first_name = self.user.get("first_name", "Farmer") if self.user else "Farmer"
         greet_lbl = MDLabel(
-            text=f"Hi {self.user['first_name']}",
-            font_style="H5", bold=True,
+            text=f"Hello, {first_name}",
+            font_style="H5",
+            bold=True,
+            theme_text_color="Custom",
+            text_color=(0.05, 0.23, 0.18, 1),
+            size_hint_y=None, height=dp(32),
+        )
+        title_box.add_widget(welcome_lbl)
+        title_box.add_widget(greet_lbl)
+
+        # Right Avatar Circle with Red Notification Dot
+        avatar_card = MDCard(
+            size_hint=(None, None), size=(dp(46), dp(46)),
+            radius=[23, 23, 23, 23],
+            md_bg_color=(0.22, 0.60, 0.28, 1),
+            elevation=2,
+            pos_hint={"center_y": 0.5},
+        )
+        initials = (first_name[0] if first_name else "F").upper()
+        avatar_lbl = MDLabel(
+            text=initials,
+            halign="center",
+            bold=True, font_style="H6",
+            theme_text_color="Custom",
+            text_color=(1, 1, 1, 1),
+        )
+        avatar_card.add_widget(avatar_lbl)
+
+        # Draw small red badge dot on top right of avatar
+        with avatar_card.canvas.after:
+            Color(0.92, 0.25, 0.25, 1)
+            avatar_card._dot = Ellipse(pos=(avatar_card.right - dp(10), avatar_card.top - dp(10)), size=(dp(10), dp(10)))
+
+        def _upd_dot(inst, *_):
+            inst._dot.pos = (inst.right - dp(10), inst.top - dp(10))
+        avatar_card.bind(pos=_upd_dot, size=_upd_dot)
+
+        header_row.add_widget(title_box)
+        header_row.add_widget(avatar_card)
+        box.add_widget(header_row)
+        cards.append(header_row)
+
+        # ── 2. "MY CROPS" SECTION ─────────────────────────────────────
+        crops_header = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(28),
+        )
+        crops_title = MDLabel(
+            text="My Crops",
+            font_style="Subtitle1", bold=True,
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+        )
+        view_all_btn = MDTextButton(
+            text="View All",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.13, 0.77, 0.37, 1),
+            pos_hint={"center_y": 0.5},
+            on_release=lambda x: self.edit_crops(),
+        )
+        crops_header.add_widget(crops_title)
+        crops_header.add_widget(view_all_btn)
+        box.add_widget(crops_header)
+        cards.append(crops_header)
+
+        # Followed crops list
+        followed_names = [c[1] for c in self.crops if c[0] in self.followed_crop_ids] if (self.crops and hasattr(self, "followed_crop_ids")) else []
+        if not followed_names:
+            followed_names = ["Okra", "Cabbage", "Carrots"]
+
+        crop_health_map = {
+            "Okra": ("Health: Excellent", "GROWING", (0.88, 0.97, 0.88, 1), (0.13, 0.65, 0.22, 1)),
+            "Cabbage": ("Health: Good", "GROWING", (0.88, 0.97, 0.88, 1), (0.13, 0.65, 0.22, 1)),
+            "Carrots": ("Health: Optimal", "HARVESTING", (0.98, 0.95, 0.82, 1), (0.75, 0.48, 0.05, 1)),
+            "Beans": ("Health: Excellent", "GROWING", (0.88, 0.97, 0.88, 1), (0.13, 0.65, 0.22, 1)),
+            "Leeks": ("Health: Good", "PLANTED", (0.90, 0.94, 0.98, 1), (0.12, 0.42, 0.75, 1)),
+        }
+
+        for cname in followed_names[:2]:
+            h_text, status_tag, tag_bg, tag_fg = crop_health_map.get(
+                cname, ("Health: Good", "GROWING", (0.88, 0.97, 0.88, 1), (0.13, 0.65, 0.22, 1))
+            )
+            crop_card = MDCard(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(68),
+                padding=(dp(10), dp(8), dp(12), dp(8)),
+                spacing=dp(12),
+                radius=[16, 16, 16, 16],
+                md_bg_color=(1, 1, 1, 1),
+                elevation=1,
+                ripple_behavior=True,
+            )
+
+            # Left crop icon container
+            icon_box = MDCard(
+                size_hint=(None, None), size=(dp(48), dp(48)),
+                radius=[12, 12, 12, 12],
+                md_bg_color=(0.14, 0.40, 0.28, 0.12),
+                elevation=0,
+                pos_hint={"center_y": 0.5},
+            )
+            crop_icon_name = "sprout"
+            if cname.lower() == "okra":
+                crop_icon_name = "leaf"
+            elif cname.lower() == "cabbage":
+                crop_icon_name = "flower-tulip"
+            elif cname.lower() == "carrots":
+                crop_icon_name = "carrot"
+            elif cname.lower() == "beans":
+                crop_icon_name = "seed"
+            elif cname.lower() == "leeks":
+                crop_icon_name = "tree"
+
+            icon_lbl = MDIcon(
+                icon=crop_icon_name,
+                halign="center",
+                font_size="26sp",
+                theme_text_color="Custom",
+                text_color=(0.12, 0.48, 0.28, 1),
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+            )
+            icon_box.add_widget(icon_lbl)
+
+            info_box = MDBoxLayout(
+                orientation="vertical",
+                spacing=dp(2),
+                pos_hint={"center_y": 0.5},
+            )
+            c_name_lbl = MDLabel(
+                text=cname,
+                bold=True, font_style="Subtitle2",
+                theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+                size_hint_y=None, height=dp(20),
+            )
+            c_health_lbl = MDLabel(
+                text=f"● {h_text}",
+                font_style="Caption",
+                theme_text_color="Custom", text_color=(0.02, 0.58, 0.40, 1),
+                size_hint_y=None, height=dp(16),
+            )
+            info_box.add_widget(c_name_lbl)
+            info_box.add_widget(c_health_lbl)
+
+            tag_card = MDCard(
+                size_hint=(None, None), size=(dp(78), dp(24)),
+                radius=[8, 8, 8, 8],
+                md_bg_color=tag_bg,
+                elevation=0,
+                pos_hint={"center_y": 0.5},
+                padding=(dp(4), dp(2)),
+            )
+            tag_lbl = MDLabel(
+                text=status_tag,
+                halign="center",
+                bold=True, font_style="Caption",
+                theme_text_color="Custom", text_color=tag_fg,
+            )
+            tag_card.add_widget(tag_lbl)
+
+            crop_card.add_widget(icon_box)
+            crop_card.add_widget(info_box)
+            crop_card.add_widget(tag_card)
+            box.add_widget(crop_card)
+            cards.append(crop_card)
+
+        # ── 3. "QUICK ACTIONS" SECTION ─────────────────────────────────
+        actions_title = MDLabel(
+            text="Quick Actions",
+            font_style="Subtitle1", bold=True,
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            size_hint_y=None, height=dp(26),
+        )
+        box.add_widget(actions_title)
+        cards.append(actions_title)
+
+        actions_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(105),
+            spacing=dp(10),
+        )
+
+        quick_actions_data = [
+            ("camera-outline", "Check\nHealth", (0.22, 0.85, 0.35, 1), "recommendations"),
+            ("comment-text-outline", "Get\nAdvice", (0.22, 0.85, 0.35, 1), "recommendations"),
+            ("trending-up", "Market\nPrices", (0.22, 0.85, 0.35, 1), "history"),
+        ]
+
+        for icon_name, label_text, circle_clr, target_tab in quick_actions_data:
+            act_card = MDCard(
+                orientation="vertical",
+                size_hint=(0.33, 1),
+                radius=[16, 16, 16, 16],
+                md_bg_color=(1, 1, 1, 1),
+                elevation=1,
+                padding=(dp(6), dp(10), dp(6), dp(8)),
+                spacing=dp(6),
+                ripple_behavior=True,
+            )
+
+            circle_icon_box = MDCard(
+                size_hint=(None, None), size=(dp(44), dp(44)),
+                radius=[22, 22, 22, 22],
+                md_bg_color=circle_clr,
+                elevation=1,
+                pos_hint={"center_x": 0.5},
+            )
+            act_icon = MDIcon(
+                icon=icon_name,
+                halign="center",
+                font_size="22sp",
+                theme_text_color="Custom",
+                text_color=(1, 1, 1, 1),
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+            )
+            circle_icon_box.add_widget(act_icon)
+
+            act_lbl = MDLabel(
+                text=label_text,
+                halign="center",
+                bold=True, font_style="Caption",
+                theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
+                size_hint_y=None, height=dp(28),
+            )
+            act_card.add_widget(circle_icon_box)
+            act_card.add_widget(act_lbl)
+
+            def _switch_tab(inst, tab_name=target_tab):
+                if self.ids.bottom_nav:
+                    self.ids.bottom_nav.switch_tab(tab_name)
+            act_card.bind(on_release=_switch_tab)
+            actions_row.add_widget(act_card)
+
+        box.add_widget(actions_row)
+        cards.append(actions_row)
+
+        # ── 4. "NEXT SEASON INSIGHT" CARD ──────────────────────────────
+        insight_card = MDCard(
+            orientation="vertical",
+            size_hint_y=None, height=dp(170),
+            radius=[20, 20, 20, 20],
+            md_bg_color=(0.04, 0.31, 0.24, 1),
+            elevation=2,
+            padding=dp(16),
+            spacing=dp(8),
+        )
+
+        ins_head_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(26),
+            spacing=dp(8),
+        )
+        leaf_icon = MDIcon(
+            icon="leaf",
+            theme_text_color="Custom", text_color=(0.29, 0.87, 0.50, 1),
+            font_size="20sp",
+            size_hint=(None, None), size=(dp(24), dp(24)),
+        )
+        ins_title_lbl = MDLabel(
+            text="Next Season Insight",
+            bold=True, font_style="Subtitle1",
             theme_text_color="Custom", text_color=(1, 1, 1, 1),
         )
+        ins_head_row.add_widget(leaf_icon)
+        ins_head_row.add_widget(ins_title_lbl)
 
-        # Refresh button
-        refresh_btn = MDIconButton(
-            icon="refresh",
-            theme_text_color="Custom",
-            text_color=(1, 1, 1, 0.85),
-            pos_hint={"center_y": 0.5},
-            on_release=lambda x: self._refresh_home(x),
-        )
-        name_row.add_widget(greet_lbl)
-        name_row.add_widget(refresh_btn)
-
-        tagline_lbl = MDLabel(
-            text=ROLE_TAGLINE.get(role, ""),
+        ins_desc_lbl = MDLabel(
+            text="Based on current soil conditions and weather forecasts for your region.",
             font_style="Caption",
-            theme_text_color="Custom", text_color=(0.85, 1, 0.87, 1),
+            theme_text_color="Custom", text_color=(0.78, 0.88, 0.82, 1),
+            size_hint_y=None, height=dp(28),
+        )
+
+        inner_ins_card = MDCard(
+            orientation="vertical",
+            size_hint_y=None, height=dp(74),
+            radius=[14, 14, 14, 14],
+            md_bg_color=(0.08, 0.38, 0.30, 1),
+            elevation=0,
+            padding=(dp(12), dp(8), dp(12), dp(8)),
+            spacing=dp(2),
+        )
+
+        opt_head_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(20),
+        )
+        opt_lbl = MDLabel(
+            text="OPTIMAL PLANTING TIME",
+            bold=True, font_style="Caption",
+            theme_text_color="Custom", text_color=(0.65, 0.85, 0.72, 1),
+        )
+        yield_tag = MDCard(
+            size_hint=(None, None), size=(dp(76), dp(18)),
+            radius=[6, 6, 6, 6],
+            md_bg_color=(0.13, 0.77, 0.37, 1),
+            elevation=0,
+        )
+        yield_lbl = MDLabel(
+            text="HIGH YIELD",
+            halign="center",
+            bold=True, font_style="Caption",
+            theme_text_color="Custom", text_color=(1, 1, 1, 1),
+        )
+        yield_tag.add_widget(yield_lbl)
+        opt_head_row.add_widget(opt_lbl)
+        opt_head_row.add_widget(yield_tag)
+
+        crop_highlight_lbl = MDLabel(
+            text="Carrots",
+            bold=True, font_style="Subtitle1",
+            theme_text_color="Custom", text_color=(1, 1, 1, 1),
+            size_hint_y=None, height=dp(22),
+        )
+        date_range_lbl = MDLabel(
+            text="Oct 15 - Oct 22",
+            bold=True, font_style="Body2",
+            theme_text_color="Custom", text_color=(0.29, 0.87, 0.50, 1),
             size_hint_y=None, height=dp(18),
         )
-        region_row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(22))
-        region_lbl = MDLabel(
-            text=f"● {self.user.get('district') or 'No district set'}",
-            font_style="Caption",
-            theme_text_color="Custom", text_color=(0.85, 1, 0.87, 1),
-        )
 
-        # Weather badge in header
-        w_data = get_weather_impact_analysis(region_id=self.user.get("region_id"))
-        cond = w_data.get("condition", "")
-        temp = w_data.get("avg_temp_c", 0)
-        weather_badge = MDCard(
-            size_hint=(None, None), size=(dp(90), dp(28)),
-            radius=[12, 12, 12, 12], elevation=0,
-            md_bg_color=(1, 1, 1, 0.18),
-            padding=(dp(8), dp(4), dp(8), dp(4)),
-        )
-        weather_lbl = MDLabel(
-            text=f"● {temp:.0f}°C",
-            font_style="Caption", halign="center",
-            theme_text_color="Custom", text_color=(1, 1, 1, 1),
-        )
-        weather_badge.add_widget(weather_lbl)
+        inner_ins_card.add_widget(opt_head_row)
+        inner_ins_card.add_widget(crop_highlight_lbl)
+        inner_ins_card.add_widget(date_range_lbl)
 
-        region_row.add_widget(region_lbl)
-        region_row.add_widget(weather_badge)
+        insight_card.add_widget(ins_head_row)
+        insight_card.add_widget(ins_desc_lbl)
+        insight_card.add_widget(inner_ins_card)
 
-        header.add_widget(name_row)
-        header.add_widget(tagline_lbl)
-        header.add_widget(region_row)
-        box.add_widget(header)
-        cards.append(header)
+        box.add_widget(insight_card)
+        cards.append(insight_card)
 
-        # ── inner padded content ──────────────────────────────────────
-        inner = MDBoxLayout(
-            orientation="vertical",
-            padding=(dp(14), dp(14), dp(14), dp(0)),
+        # ── 5. WEATHER BANNER AT BOTTOM ───────────────────────────────
+        w_data = get_weather_impact_analysis(region_id=self.user.get("region_id")) if self.user else {}
+        w_cond = w_data.get("condition", "Sunny Interval")
+        w_temp = w_data.get("avg_temp_c", 28.0)
+
+        weather_card = MDCard(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(70),
+            radius=[16, 16, 16, 16],
+            md_bg_color=(0.91, 0.98, 0.94, 1),
+            elevation=0,
+            padding=(dp(14), dp(10), dp(14), dp(10)),
             spacing=dp(10),
-            size_hint_y=None, height=1,
         )
-        box.add_widget(inner)
 
-        # Market snapshot section label
-        snap_lbl = MDLabel(
-            text="●  Market snapshot — your followed crops",
-            bold=True, font_style="Subtitle1",
-            theme_text_color="Custom", text_color=(0.1, 0.1, 0.1, 1),
-            size_hint_y=None, height=dp(34),
+        sun_icon = MDIcon(
+            icon="weather-sunny",
+            font_size="32sp",
+            theme_text_color="Custom", text_color=(0.96, 0.62, 0.07, 1),
+            size_hint=(None, None), size=(dp(36), dp(36)),
+            pos_hint={"center_y": 0.5},
         )
-        inner.add_widget(snap_lbl)
-        cards.append(snap_lbl)
 
-        # Price cards
-        summary = get_market_summary(region_id=self.user.get("region_id"))
-        followed_names = {c[1] for c in self.crops if c[0] in self.followed_crop_ids}
-        for row in summary:
-            if row["crop"] not in followed_names:
-                continue
-            card = self._make_price_card(row)
-            inner.add_widget(card)
-            cards.append(card)
-
-        # Divider
-        inner.add_widget(self._make_divider())
-
-        # ── Weather Impact section ────────────────────────────────────
-        w_lbl = MDLabel(
-            text="●  Weather Impact Analysis",
-            bold=True, font_style="Subtitle1",
-            theme_text_color="Custom", text_color=(0.1, 0.1, 0.1, 1),
-            size_hint_y=None, height=dp(34),
+        w_text_box = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(2),
+            pos_hint={"center_y": 0.5},
         )
-        inner.add_widget(w_lbl)
-        cards.append(w_lbl)
+        w_title = MDLabel(
+            text=w_cond if w_cond else "Sunny Interval",
+            bold=True, font_style="Subtitle2",
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            size_hint_y=None, height=dp(20),
+        )
+        w_sub = MDLabel(
+            text="Low humidity, good for spraying",
+            font_style="Caption",
+            theme_text_color="Custom", text_color=(0.40, 0.55, 0.45, 1),
+            size_hint_y=None, height=dp(18),
+        )
+        w_text_box.add_widget(w_title)
+        w_text_box.add_widget(w_sub)
 
-        for w_card in self._build_weather_cards(w_data):
-            inner.add_widget(w_card)
-            cards.append(w_card)
+        w_right_box = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(0),
+            size_hint_x=None, width=dp(70),
+            pos_hint={"center_y": 0.5},
+        )
+        temp_lbl = MDLabel(
+            text=f"{w_temp:.0f}°C",
+            halign="right", bold=True, font_style="H5",
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            size_hint_y=None, height=dp(28),
+        )
+        today_lbl = MDLabel(
+            text="TODAY",
+            halign="right", bold=True, font_style="Caption",
+            theme_text_color="Custom", text_color=(0.20, 0.70, 0.40, 1),
+            size_hint_y=None, height=dp(14),
+        )
+        w_right_box.add_widget(temp_lbl)
+        w_right_box.add_widget(today_lbl)
+
+        weather_card.add_widget(sun_icon)
+        weather_card.add_widget(w_text_box)
+        weather_card.add_widget(w_right_box)
+
+        box.add_widget(weather_card)
+        cards.append(weather_card)
 
         # Fix inner height
         def _fix(*_):
-            inner.height = inner.minimum_height
+            box.height = box.minimum_height
         Clock.schedule_once(_fix, 0)
 
         stagger_fade_in(cards[1:], step=0.04, duration=0.28)
