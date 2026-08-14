@@ -35,35 +35,35 @@
 
 | Login Screen | Crop Selection |
 |:---:|:---:|
-| ![Login Screen](screenshots/Homepage.png) | ![Crop Selection](screenshots/editCrops.png) |
+| ![Login Screen](screenshot/Homepage.png) | ![Crop Selection](screenshot/editCrops.png) |
 
 ### 📊 Role-Based Dashboards
 
 | Admin Dashboard | Farmer Dashboard |
 |:---:|:---:|
-| ![Admin Dashboard](screenshots/dashboard-admin.png) | ![Farmer Dashboard](screenshots/dashboard-farmer.png) |
+| ![Admin Dashboard](screenshot/dashboard-admin.png) | ![Farmer Dashboard](screenshot/dashboard-farmer.png) |
 
 | Policymaker Dashboard | Trader Dashboard |
 |:---:|:---:|
-| ![Policymaker Dashboard](screenshots/dashboard-policymaker.png) | ![Trader Dashboard](screenshots/dashboard-trader.png) |
+| ![Policymaker Dashboard](screenshot/dashboard-policymaker.png) | ![Trader Dashboard](screenshot/dashboard-trader.png) |
 
 ### 🔔 Insights & Alerts
 
 | For You — Recommendations | Alerts |
 |:---:|:---:|
-| ![For You](screenshots/forYou.png) | ![Alerts](screenshots/alerts.png) |
+| ![For You](screenshot/forYou.png) | ![Alerts](screenshot/alerts.png) |
 
 ### 📈 History & Analytics
 
 | Beans — Price Trend (16 Weeks) | Beans — Production Volume (16 Weeks) |
 |:---:|:---:|
-| ![Price History](screenshots/history-beans-price.png) | ![Production History](screenshots/history=beans-production.png) |
+| ![Price History](screenshot/history-beans-price.png) | ![Production History](screenshot/history=beans-production.png) |
 
 ### 👤 Profile & Settings
 
 | Profile | Edit Profile | Feedback |
 |:---:|:---:|:---:|
-| ![Profile](screenshots/profile.png) | ![Edit Profile](screenshots/editprofile.png) | ![Feedback](screenshots/feedback.png) |
+| ![Profile](screenshot/profile.png) | ![Edit Profile](screenshot/editprofile.png) | ![Feedback](screenshot/feedback.png) |
 
 ---
 
