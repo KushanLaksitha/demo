@@ -226,8 +226,6 @@ class DashboardScreen(Screen):
                 self.manager.transition.direction = "right"
                 self.manager.current = "login"
             return
-        if self.ids.get("bottom_nav"):
-            self.ids.bottom_nav.switch_tab("home")
         self.crops = get_all_crops()
         pref_ids = get_user_preferred_crop_ids(self.user["user_id"])
         self.followed_crop_ids = pref_ids or ([c[0] for c in self.crops] if self.crops else [])
@@ -235,6 +233,8 @@ class DashboardScreen(Screen):
             self.history_crop_id, self.history_crop_name = self.crops[0]
         else:
             self.history_crop_id, self.history_crop_name = None, None
+        if self.ids.get("bottom_nav"):
+            self.ids.bottom_nav.switch_tab("home")
         self.load_home()
         self._build_history_crop_chips()
 
@@ -247,7 +247,9 @@ class DashboardScreen(Screen):
         if role == "trader":
             self._load_trader_home(box)
             return
-
+        if role == "policymaker":
+            self._load_policymaker_home(box)
+            return
         from kivymd.uix.card import MDCard
         from kivymd.uix.label import MDLabel, MDIcon
         from kivymd.uix.boxlayout import MDBoxLayout
@@ -682,6 +684,445 @@ class DashboardScreen(Screen):
         cards.append(weather_card)
 
         # Fix inner height
+        def _fix(*_):
+            box.height = box.minimum_height
+        Clock.schedule_once(_fix, 0)
+
+        stagger_fade_in(cards[1:], step=0.04, duration=0.28)
+        center_scroll_content(box.parent, box)
+
+    def _load_policymaker_home(self, box):
+        from kivymd.uix.card import MDCard
+        from kivymd.uix.label import MDLabel, MDIcon
+        from kivymd.uix.boxlayout import MDBoxLayout
+        from kivymd.uix.button import MDIconButton
+        from kivy.graphics import Color, Rectangle, RoundedRectangle
+        from kivy.uix.widget import Widget
+
+        box.clear_widgets()
+        box.padding = (dp(16), dp(14), dp(16), dp(24))
+        box.spacing = dp(14)
+        cards = []
+
+        # ── 1. HEADER ─────────────────────────────────────────────────────────
+        header_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(52),
+            spacing=dp(8),
+        )
+        hdr_text = MDBoxLayout(orientation="vertical", spacing=dp(2))
+        hdr_title = MDLabel(
+            text="Policymaker Overview",
+            font_style="H6", bold=True,
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            size_hint_y=None, height=dp(28),
+        )
+        hdr_sub = MDLabel(
+            text="AGRISENSE STRATEGIC DATA",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.42, 0.47, 0.55, 1),
+            size_hint_y=None, height=dp(16),
+        )
+        hdr_text.add_widget(hdr_title)
+        hdr_text.add_widget(hdr_sub)
+
+        avatar_card = MDCard(
+            size_hint=(None, None), size=(dp(38), dp(38)),
+            radius=[19, 19, 19, 19],
+            md_bg_color=(0.22, 0.60, 0.28, 1),
+            elevation=1,
+            pos_hint={"center_y": 0.5},
+        )
+        first_name = self.user.get("first_name", "P") if self.user else "P"
+        avatar_lbl = MDLabel(
+            text=first_name[0].upper(),
+            halign="center", bold=True, font_style="H6",
+            theme_text_color="Custom", text_color=(1, 1, 1, 1),
+        )
+        avatar_card.add_widget(avatar_lbl)
+        header_row.add_widget(hdr_text)
+        header_row.add_widget(avatar_card)
+        box.add_widget(header_row)
+        cards.append(header_row)
+
+        # ── 2. STAT CARDS (Food Security + Yield Growth) ────────────────────
+        stats_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(86),
+            spacing=dp(12),
+        )
+
+        stat_data = [
+            {
+                "label": "FOOD SECURITY",
+                "value": "78.4",
+                "sub": "+2.1%",
+                "sub_color": (0.13, 0.65, 0.22, 1),
+                "icon": "shield-check",
+                "icon_color": (0.22, 0.80, 0.30, 1),
+                "bg": (1, 1, 1, 1),
+            },
+            {
+                "label": "YIELD GROWTH",
+                "value": "4.2%",
+                "sub": "↑ Almost",
+                "sub_color": (0.13, 0.65, 0.22, 1),
+                "icon": "chart-bar",
+                "icon_color": (0.22, 0.80, 0.30, 1),
+                "bg": (1, 1, 1, 1),
+            },
+        ]
+
+        for sd in stat_data:
+            sc = MDCard(
+                orientation="vertical",
+                size_hint=(0.5, 1),
+                radius=[14, 14, 14, 14],
+                md_bg_color=sd["bg"],
+                elevation=1,
+                padding=(dp(12), dp(10), dp(10), dp(10)),
+                spacing=dp(2),
+                ripple_behavior=True,
+            )
+            top_row = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(22),
+            )
+            s_lbl = MDLabel(
+                text=sd["label"],
+                font_style="Caption", bold=True,
+                theme_text_color="Custom", text_color=(0.13, 0.65, 0.22, 1),
+            )
+            s_icon = MDIcon(
+                icon=sd["icon"],
+                font_size="18sp",
+                theme_text_color="Custom", text_color=sd["icon_color"],
+                size_hint=(None, None), size=(dp(22), dp(22)),
+            )
+            top_row.add_widget(s_lbl)
+            top_row.add_widget(s_icon)
+            s_val = MDLabel(
+                text=sd["value"],
+                font_style="H5", bold=True,
+                theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+                size_hint_y=None, height=dp(30),
+            )
+            s_sub = MDLabel(
+                text=sd["sub"],
+                font_style="Caption",
+                theme_text_color="Custom", text_color=sd["sub_color"],
+                size_hint_y=None, height=dp(16),
+            )
+            sc.add_widget(top_row)
+            sc.add_widget(s_val)
+            sc.add_widget(s_sub)
+            stats_row.add_widget(sc)
+
+        box.add_widget(stats_row)
+        cards.append(stats_row)
+
+        # ── 3. REGIONAL PRODUCTION HEATMAP ───────────────────────────────────
+        hmap_header = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(26),
+        )
+        hmap_title = MDLabel(
+            text="REGIONAL PRODUCTION HEATMAP",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
+        )
+        filter_pill = MDCard(
+            size_hint=(None, None), size=(dp(58), dp(22)),
+            radius=[8, 8, 8, 8],
+            md_bg_color=(0.92, 0.97, 0.92, 1),
+            elevation=0,
+            pos_hint={"center_y": 0.5},
+            padding=(dp(2), dp(2)),
+        )
+        filter_lbl = MDLabel(
+            text="▾ Filter",
+            halign="center", font_style="Caption",
+            theme_text_color="Custom", text_color=(0.22, 0.60, 0.28, 1),
+        )
+        filter_pill.add_widget(filter_lbl)
+        hmap_header.add_widget(hmap_title)
+        hmap_header.add_widget(filter_pill)
+        box.add_widget(hmap_header)
+        cards.append(hmap_header)
+
+        # 3x3 heatmap grid
+        heatmap_data = [
+            # (label, intensity 0.0-1.0, tooltip)
+            ("North", 0.75, "High"),
+            ("", 0.85, "High"),
+            ("", 0.30, "Low"),
+            ("Mid", 0.55, "Mid"),
+            ("Dist. A\n450 Tons", 0.40, "Mid"),
+            ("", 0.60, "Mid"),
+            ("", 0.20, "Low"),
+            ("", 0.80, "High"),
+            ("South", 0.50, "Mid"),
+        ]
+
+        hmap_card = MDCard(
+            size_hint_y=None, height=dp(248),
+            radius=[16, 16, 16, 16],
+            md_bg_color=(1, 1, 1, 1),
+            elevation=1,
+            padding=(dp(10), dp(10), dp(10), dp(10)),
+            spacing=dp(8),
+            orientation="vertical",
+        )
+
+        grid_box = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None, height=dp(150),
+            spacing=dp(4),
+        )
+
+        row_idx = 0
+        for r in range(3):
+            row = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(44),
+                spacing=dp(4),
+            )
+            for c in range(3):
+                item = heatmap_data[row_idx]
+                intensity = item[1]
+                # Map intensity to green shade: low = light, high = dark
+                green = 0.35 + intensity * 0.40
+                r_val = 0.80 - intensity * 0.50
+                g_val = green
+                b_val = 0.50 - intensity * 0.35
+                cell = MDCard(
+                    size_hint=(0.33, 1),
+                    radius=[8, 8, 8, 8],
+                    md_bg_color=(r_val, g_val, b_val, 1),
+                    elevation=0,
+                    padding=(dp(2), dp(2)),
+                )
+                cell_lbl = MDLabel(
+                    text=item[0],
+                    halign="center", font_style="Caption",
+                    theme_text_color="Custom",
+                    text_color=(1, 1, 1, 0.92) if intensity > 0.45 else (0.20, 0.20, 0.20, 1),
+                )
+                cell.add_widget(cell_lbl)
+                row.add_widget(cell)
+                row_idx += 1
+            grid_box.add_widget(row)
+
+        # Legend bar below the grid
+        legend_box = MDBoxLayout(
+            orientation="vertical",
+            size_hint_y=None, height=dp(46),
+            spacing=dp(3),
+        )
+        legend_bar_box = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(10),
+            spacing=dp(2),
+        )
+        for shade_i in range(6):
+            t = shade_i / 5.0
+            shade_card = MDCard(
+                size_hint=(0.16, 1),
+                radius=[3, 3, 3, 3],
+                md_bg_color=(0.80 - t * 0.50, 0.35 + t * 0.40, 0.50 - t * 0.35, 1),
+                elevation=0,
+            )
+            legend_bar_box.add_widget(shade_card)
+
+        legend_labels = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(14),
+        )
+        legend_labels.add_widget(MDLabel(
+            text="Low",
+            font_style="Caption", halign="left",
+            theme_text_color="Custom", text_color=(0.45, 0.50, 0.55, 1),
+        ))
+        legend_labels.add_widget(MDLabel(
+            text="High",
+            font_style="Caption", halign="right",
+            theme_text_color="Custom", text_color=(0.45, 0.50, 0.55, 1),
+        ))
+        legend_lbl_top = MDLabel(
+            text="PRODUCTION VOLUME",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.45, 0.50, 0.55, 1),
+            size_hint_y=None, height=dp(13),
+        )
+        legend_box.add_widget(legend_lbl_top)
+        legend_box.add_widget(legend_bar_box)
+        legend_box.add_widget(legend_labels)
+
+        hmap_card.add_widget(grid_box)
+        hmap_card.add_widget(legend_box)
+        box.add_widget(hmap_card)
+        cards.append(hmap_card)
+
+        # ── 4. PRODUCTION VS DEMAND BARS ──────────────────────────────────────
+        pvd_title = MDLabel(
+            text="PRODUCTION VS. DEMAND (MT)",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
+            size_hint_y=None, height=dp(22),
+        )
+        box.add_widget(pvd_title)
+        cards.append(pvd_title)
+
+        pvd_data = [
+            {
+                "crop": "Cabbage",
+                "prod": 4.8, "prod_max": 6.0,
+                "dem": 6.5, "dem_max": 6.5,
+                "shortfall": "Shortfall: -1.0k MT",
+                "prod_color": (0.22, 0.80, 0.30, 1),
+                "dem_color": (0.78, 0.78, 0.78, 1),
+            },
+            {
+                "crop": "Leeks",
+                "prod": 6.2, "dem": 5.3,
+                "prod_max": 7.0, "dem_max": 7.0,
+                "shortfall": "Surplus: +0.9k MT",
+                "prod_color": (0.22, 0.80, 0.30, 1),
+                "dem_color": (0.78, 0.78, 0.78, 1),
+            },
+        ]
+
+        for pd in pvd_data:
+            pd_card = MDCard(
+                orientation="vertical",
+                size_hint_y=None, height=dp(90),
+                radius=[14, 14, 14, 14],
+                md_bg_color=(1, 1, 1, 1),
+                elevation=1,
+                padding=(dp(12), dp(10), dp(12), dp(10)),
+                spacing=dp(6),
+            )
+            crop_row = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(16),
+            )
+            crop_name_lbl = MDLabel(
+                text=pd["crop"],
+                font_style="Caption", bold=True,
+                theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            )
+            legend_row = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(14),
+                spacing=dp(8),
+            )
+            for leg_text, leg_color in [("● Prod.", pd["prod_color"]), ("Dem.", (0.55, 0.55, 0.55, 1))]:
+                ll = MDLabel(
+                    text=leg_text, font_style="Caption",
+                    theme_text_color="Custom", text_color=leg_color,
+                )
+                legend_row.add_widget(ll)
+            crop_row.add_widget(crop_name_lbl)
+            crop_row.add_widget(legend_row)
+
+            # Prod bar
+            prod_bar_bg = MDCard(
+                size_hint_y=None, height=dp(10),
+                radius=[5, 5, 5, 5],
+                md_bg_color=(0.91, 0.96, 0.91, 1),
+                elevation=0,
+            )
+            prod_fill_frac = min(pd["prod"] / pd["prod_max"], 1.0)
+            with prod_bar_bg.canvas.after:
+                Color(*pd["prod_color"])
+                prod_bar_bg._fill = RoundedRectangle(
+                    pos=prod_bar_bg.pos,
+                    size=(0, prod_bar_bg.height),
+                    radius=[5, 5, 5, 5],
+                )
+            def _upd_prod(inst, val, frac=prod_fill_frac):
+                inst._fill.pos = inst.pos
+                inst._fill.size = (inst.width * frac, inst.height)
+            prod_bar_bg.bind(pos=_upd_prod, size=_upd_prod)
+
+            # Dem bar
+            dem_bar_bg = MDCard(
+                size_hint_y=None, height=dp(10),
+                radius=[5, 5, 5, 5],
+                md_bg_color=(0.93, 0.93, 0.93, 1),
+                elevation=0,
+            )
+            dem_fill_frac = min(pd["dem"] / pd["dem_max"], 1.0)
+            with dem_bar_bg.canvas.after:
+                Color(0.65, 0.65, 0.65, 1)
+                dem_bar_bg._fill = RoundedRectangle(
+                    pos=dem_bar_bg.pos,
+                    size=(0, dem_bar_bg.height),
+                    radius=[5, 5, 5, 5],
+                )
+            def _upd_dem(inst, val, frac=dem_fill_frac):
+                inst._fill.pos = inst.pos
+                inst._fill.size = (inst.width * frac, inst.height)
+            dem_bar_bg.bind(pos=_upd_dem, size=_upd_dem)
+
+            # Shortfall label
+            sf_color = (0.85, 0.20, 0.20, 1) if "Shortfall" in pd["shortfall"] else (0.13, 0.65, 0.22, 1)
+            sf_lbl = MDLabel(
+                text=pd["shortfall"],
+                font_style="Caption", bold=True,
+                theme_text_color="Custom", text_color=sf_color,
+                size_hint_y=None, height=dp(14),
+            )
+
+            pd_card.add_widget(crop_row)
+            pd_card.add_widget(prod_bar_bg)
+            pd_card.add_widget(dem_bar_bg)
+            pd_card.add_widget(sf_lbl)
+
+            box.add_widget(pd_card)
+            cards.append(pd_card)
+
+        # ── 5. STRATEGIC INSIGHT CARD ──────────────────────────────────────────
+        insight_card = MDCard(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(90),
+            radius=[14, 14, 14, 14],
+            md_bg_color=(0.93, 0.97, 0.93, 1),
+            elevation=0,
+            padding=(dp(12), dp(10), dp(12), dp(10)),
+            spacing=dp(10),
+        )
+        bulb_icon = MDIcon(
+            icon="lightbulb-on",
+            font_size="28sp",
+            theme_text_color="Custom", text_color=(0.22, 0.75, 0.30, 1),
+            size_hint=(None, None), size=(dp(30), dp(30)),
+            pos_hint={"center_y": 0.5},
+        )
+        insight_text_box = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(2),
+            pos_hint={"center_y": 0.5},
+        )
+        insight_hdr = MDLabel(
+            text="STRATEGIC INSIGHT",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.15, 0.55, 0.25, 1),
+            size_hint_y=None, height=dp(16),
+        )
+        insight_body = MDLabel(
+            text="Cabbage production is 12% below forecasted demand in the Central district. Recommend activating the emergency import buffer for Q4.",
+            font_style="Caption",
+            theme_text_color="Custom", text_color=(0.28, 0.35, 0.30, 1),
+        )
+        insight_text_box.add_widget(insight_hdr)
+        insight_text_box.add_widget(insight_body)
+        insight_card.add_widget(bulb_icon)
+        insight_card.add_widget(insight_text_box)
+        box.add_widget(insight_card)
+        cards.append(insight_card)
+
+        # Fix height
         def _fix(*_):
             box.height = box.minimum_height
         Clock.schedule_once(_fix, 0)
