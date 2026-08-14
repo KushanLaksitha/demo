@@ -240,13 +240,18 @@ class DashboardScreen(Screen):
     # HOME TAB
     # ══════════════════════════════════════════════════════════════════════
     def load_home(self):
+        box = self.ids.home_box
+        role = self.user.get("user_type", "farmer") if self.user else "farmer"
+        if role == "trader":
+            self._load_trader_home(box)
+            return
+
         from kivymd.uix.card import MDCard
         from kivymd.uix.label import MDLabel, MDIcon
         from kivymd.uix.boxlayout import MDBoxLayout
         from kivymd.uix.button import MDIconButton, MDTextButton
         from kivy.graphics import Color, Ellipse
 
-        box = self.ids.home_box
         box.clear_widgets()
         box.padding = (dp(16), dp(16), dp(16), dp(24))
         box.spacing = dp(14)
@@ -673,6 +678,322 @@ class DashboardScreen(Screen):
 
         box.add_widget(weather_card)
         cards.append(weather_card)
+
+        # Fix inner height
+        def _fix(*_):
+            box.height = box.minimum_height
+        Clock.schedule_once(_fix, 0)
+
+        stagger_fade_in(cards[1:], step=0.04, duration=0.28)
+        center_scroll_content(box.parent, box)
+
+    def _load_trader_home(self, box):
+        from kivymd.uix.card import MDCard
+        from kivymd.uix.label import MDLabel, MDIcon
+        from kivymd.uix.boxlayout import MDBoxLayout
+        from kivymd.uix.button import MDIconButton, MDRaisedButton
+        from kivymd.uix.textfield import MDTextField
+        from kivy.graphics import Color, RoundedRectangle
+
+        box.clear_widgets()
+        box.padding = (dp(16), dp(12), dp(16), dp(24))
+        box.spacing = dp(14)
+        cards = []
+
+        # ── 1. TOP BAR (Hamburger Icon, "Stocks" title, Search Icon) ──────────
+        top_bar = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(40),
+            spacing=dp(10),
+        )
+        menu_btn = MDIconButton(
+            icon="menu",
+            theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
+            pos_hint={"center_y": 0.5},
+            on_release=lambda x: self._refresh_home(),
+        )
+        title_lbl = MDLabel(
+            text="Stocks",
+            font_style="H6", bold=True, halign="center",
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            pos_hint={"center_y": 0.5},
+        )
+        search_icon_btn = MDIconButton(
+            icon="magnify",
+            theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
+            pos_hint={"center_y": 0.5},
+        )
+        top_bar.add_widget(menu_btn)
+        top_bar.add_widget(title_lbl)
+        top_bar.add_widget(search_icon_btn)
+        box.add_widget(top_bar)
+        cards.append(top_bar)
+
+        # ── 2. SEARCH BAR FIELD CARD ─────────────────────────────────────────
+        search_card = MDCard(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(46),
+            padding=(dp(12), dp(4), dp(12), dp(4)),
+            radius=[12, 12, 12, 12],
+            md_bg_color=(1, 1, 1, 1),
+            elevation=1,
+        )
+        search_field = MDTextField(
+            hint_text="Search stocks…",
+            icon_left="magnify",
+            mode="line",
+            line_color_normal=(0, 0, 0, 0),
+            line_color_focus=(0, 0, 0, 0),
+            size_hint_y=None, height=dp(44),
+            pos_hint={"center_y": 0.5},
+        )
+        search_card.add_widget(search_field)
+        box.add_widget(search_card)
+        cards.append(search_card)
+
+        # ── 3. INVENTORY SUMMARY HERO BANNER CARD ────────────────────────────
+        summary_card = MDCard(
+            orientation="vertical",
+            size_hint_y=None, height=dp(210),
+            radius=[16, 16, 16, 16],
+            md_bg_color=(1, 1, 1, 1),
+            elevation=2,
+            padding=0,
+            spacing=0,
+        )
+
+        # Top banner image / gradient graphic
+        top_banner = MDCard(
+            size_hint_y=None, height=dp(100),
+            radius=[16, 16, 0, 0],
+            md_bg_color=(0.14, 0.40, 0.22, 1),
+            elevation=0,
+        )
+        with top_banner.canvas.before:
+            Color(0.24, 0.58, 0.28, 0.85)
+            top_banner._bg_rect = RoundedRectangle(pos=top_banner.pos, size=top_banner.size, radius=[16, 16, 0, 0])
+        def _upd_rect(inst, *_):
+            inst._bg_rect.pos = inst.pos
+            inst._bg_rect.size = inst.size
+        top_banner.bind(pos=_upd_rect, size=_upd_rect)
+
+        banner_lbl = MDIcon(
+            icon="image-filter-hdr",
+            font_size="64sp",
+            halign="center",
+            theme_text_color="Custom", text_color=(1, 1, 1, 0.35),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+        )
+        top_banner.add_widget(banner_lbl)
+
+        # Bottom content area
+        summary_body = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(110),
+            padding=(dp(16), dp(12), dp(16), dp(14)),
+            spacing=dp(10),
+        )
+
+        sum_text_box = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(2),
+            pos_hint={"center_y": 0.5},
+        )
+        inv_title_lbl = MDLabel(
+            text="INVENTORY SUMMARY",
+            font_style="Caption", bold=True,
+            theme_text_color="Custom", text_color=(0.20, 0.72, 0.28, 1),
+            size_hint_y=None, height=dp(16),
+        )
+        inv_val_lbl = MDLabel(
+            text="Rs. 2,450,750.00",
+            font_style="H5", bold=True,
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+            size_hint_y=None, height=dp(30),
+        )
+        inv_sub_lbl = MDLabel(
+            text="Total Inventory Value",
+            font_style="Caption",
+            theme_text_color="Custom", text_color=(0.45, 0.50, 0.55, 1),
+            size_hint_y=None, height=dp(16),
+        )
+        sum_text_box.add_widget(inv_title_lbl)
+        sum_text_box.add_widget(inv_val_lbl)
+        sum_text_box.add_widget(inv_sub_lbl)
+
+        sync_btn = MDRaisedButton(
+            text="Sync Data",
+            md_bg_color=(0.22, 0.85, 0.28, 1),
+            text_color=(1, 1, 1, 1),
+            elevation=1, _radius=10,
+            pos_hint={"center_y": 0.4},
+            on_release=lambda x: show_snackbar("Inventory data synced successfully!"),
+        )
+
+        summary_body.add_widget(sum_text_box)
+        summary_body.add_widget(sync_btn)
+
+        summary_card.add_widget(top_banner)
+        summary_card.add_widget(summary_body)
+
+        box.add_widget(summary_card)
+        cards.append(summary_card)
+
+        # ── 4. "CURRENT INVENTORY" SECTION HEADER ────────────────────────────
+        inv_header = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(28),
+        )
+        inv_title = MDLabel(
+            text="Current Inventory",
+            font_style="Subtitle1", bold=True,
+            theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+        )
+        cat_pill = MDCard(
+            size_hint=(None, None), size=(dp(90), dp(24)),
+            radius=[8, 8, 8, 8],
+            md_bg_color=(0.88, 0.96, 0.88, 1),
+            elevation=0,
+            pos_hint={"center_y": 0.5},
+            padding=(dp(4), dp(2)),
+        )
+        cat_lbl = MDLabel(
+            text="5 Categories",
+            halign="center",
+            bold=True, font_style="Caption",
+            theme_text_color="Custom", text_color=(0.10, 0.45, 0.20, 1),
+        )
+        cat_pill.add_widget(cat_lbl)
+
+        inv_header.add_widget(inv_title)
+        inv_header.add_widget(cat_pill)
+        box.add_widget(inv_header)
+        cards.append(inv_header)
+
+        # ── 5. INVENTORY ITEM CARDS LIST (Okra, Cabbage, Beans, Carrots, Leeks)
+        trader_inventory = [
+            {
+                "crop": "Okra", "qty": "450 kg", "value": "Rs. 135,000.00",
+                "tag": "OPTIMAL", "tag_bg": (0.88, 0.96, 0.88, 1), "tag_fg": (0.13, 0.65, 0.22, 1),
+                "icon": "leaf",
+            },
+            {
+                "crop": "Cabbage", "qty": "120 kg", "value": "Rs. 48,000.00",
+                "tag": "LOW STOCK", "tag_bg": (0.99, 0.88, 0.88, 1), "tag_fg": (0.85, 0.20, 0.20, 1),
+                "icon": "flower-tulip",
+            },
+            {
+                "crop": "Beans", "qty": "850 kg", "value": "Rs. 425,000.00",
+                "tag": "OPTIMAL", "tag_bg": (0.88, 0.96, 0.88, 1), "tag_fg": (0.13, 0.65, 0.22, 1),
+                "icon": "seed",
+            },
+            {
+                "crop": "Carrots", "qty": "2.1 tons", "value": "Rs. 945,000.00",
+                "tag": "OPTIMAL", "tag_bg": (0.88, 0.96, 0.88, 1), "tag_fg": (0.13, 0.65, 0.22, 1),
+                "icon": "carrot",
+            },
+            {
+                "crop": "Leeks", "qty": "600 kg", "value": "Rs. 180,000.00",
+                "tag": "FAIR", "tag_bg": (0.99, 0.96, 0.82, 1), "tag_fg": (0.75, 0.50, 0.05, 1),
+                "icon": "tree",
+            },
+        ]
+
+        for item in trader_inventory:
+            itm_card = MDCard(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(74),
+                padding=(dp(12), dp(10), dp(12), dp(10)),
+                spacing=dp(12),
+                radius=[16, 16, 16, 16],
+                md_bg_color=(1, 1, 1, 1),
+                elevation=1,
+                ripple_behavior=True,
+            )
+
+            # Left Icon Box
+            ic_box = MDCard(
+                size_hint=(None, None), size=(dp(50), dp(50)),
+                radius=[14, 14, 14, 14],
+                md_bg_color=(0.91, 0.98, 0.93, 1),
+                elevation=0,
+                pos_hint={"center_y": 0.5},
+            )
+            ic_lbl = MDIcon(
+                icon=item["icon"],
+                halign="center",
+                font_size="26sp",
+                theme_text_color="Custom", text_color=(0.20, 0.72, 0.28, 1),
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+            )
+            ic_box.add_widget(ic_lbl)
+
+            # Middle Info Box
+            mid_box = MDBoxLayout(
+                orientation="vertical",
+                spacing=dp(2),
+                pos_hint={"center_y": 0.5},
+            )
+            c_name = MDLabel(
+                text=item["crop"],
+                bold=True, font_style="Subtitle2",
+                theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
+                size_hint_y=None, height=dp(20),
+            )
+            c_qty = MDLabel(
+                text=item["qty"],
+                font_style="Caption",
+                theme_text_color="Custom", text_color=(0.45, 0.50, 0.55, 1),
+                size_hint_y=None, height=dp(16),
+            )
+            c_val = MDLabel(
+                text=item["value"],
+                bold=True, font_style="Caption",
+                theme_text_color="Custom", text_color=(0.20, 0.72, 0.28, 1),
+                size_hint_y=None, height=dp(18),
+            )
+            mid_box.add_widget(c_name)
+            mid_box.add_widget(c_qty)
+            mid_box.add_widget(c_val)
+
+            # Right Tag & Chevron Box
+            right_box = MDBoxLayout(
+                orientation="horizontal",
+                spacing=dp(6),
+                size_hint_x=None, width=dp(95),
+                pos_hint={"center_y": 0.5},
+            )
+            t_card = MDCard(
+                size_hint=(None, None), size=(dp(72), dp(22)),
+                radius=[8, 8, 8, 8],
+                md_bg_color=item["tag_bg"],
+                elevation=0,
+                pos_hint={"center_y": 0.5},
+                padding=(dp(2), dp(2)),
+            )
+            t_lbl = MDLabel(
+                text=item["tag"],
+                halign="center",
+                bold=True, font_style="Caption",
+                theme_text_color="Custom", text_color=item["tag_fg"],
+            )
+            t_card.add_widget(t_lbl)
+
+            chevron = MDIcon(
+                icon="chevron-right",
+                font_size="22sp",
+                theme_text_color="Custom", text_color=(0.65, 0.70, 0.75, 1),
+                size_hint=(None, None), size=(dp(16), dp(16)),
+                pos_hint={"center_y": 0.5},
+            )
+            right_box.add_widget(t_card)
+            right_box.add_widget(chevron)
+
+            itm_card.add_widget(ic_box)
+            itm_card.add_widget(mid_box)
+            itm_card.add_widget(right_box)
+            box.add_widget(itm_card)
+            cards.append(itm_card)
 
         # Fix inner height
         def _fix(*_):
