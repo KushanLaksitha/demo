@@ -69,9 +69,19 @@ def slide_up_fade_in(widget, delay=0.0, duration=0.35, distance=24):
 
 def bounce_scale(widget, scale_down=0.94, duration_down=0.08, duration_up=0.18):
     """Scale the widget down then spring back – used as tap feedback.
-    Works on any widget that has a `scale` property via canvas / size."""
+    Safe for widgets with size_hint (None, None); uses opacity flash for layout-managed widgets."""
+    if getattr(widget, "size_hint_x", None) is not None or getattr(widget, "size_hint_y", None) is not None:
+        anim = (
+            Animation(opacity=0.7, duration=duration_down, t="out_quad") +
+            Animation(opacity=1.0, duration=duration_up, t="out_quad")
+        )
+        anim.start(widget)
+        return
+
     orig_w = widget.width
     orig_h = widget.height
+    if orig_w <= 0 or orig_h <= 0:
+        return
     anim = (
         Animation(width=orig_w * scale_down, height=orig_h * scale_down,
                   duration=duration_down, t="out_quad") +

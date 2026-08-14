@@ -917,7 +917,6 @@ class DashboardScreen(Screen):
                 elevation=2, _radius=12,
                 on_release=callback,
             )
-            b.bind(on_release=lambda inst: bounce_scale(inst))
             return b
 
         edit_btn      = _btn("●  Edit Profile Details",  (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
