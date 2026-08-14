@@ -12,6 +12,7 @@
 ## 📋 Table of Contents
 
 - [Screenshots](#-screenshots)
+- [Exploratory Data Analysis (EDA)](#-exploratory-data-analysis-eda--market-insights)
 - [Overview & Key Features](#-overview--key-features)
 - [System Architecture](#-system-architecture)
 - [Technology Stack](#-technology-stack)
@@ -64,6 +65,36 @@
 | Profile | Edit Profile | Feedback |
 |:---:|:---:|:---:|
 | ![Profile](screenshot/profile.png) | ![Edit Profile](screenshot/editprofile.png) | ![Feedback](screenshot/feedback.png) |
+
+---
+
+## 📈 Exploratory Data Analysis (EDA) & Market Insights
+
+Exploratory Data Analysis was performed on historical Sri Lankan vegetable market price and production datasets. Below are the key insights and visualizations:
+
+### 1. 📉 Price Trends Over Time
+![Price Trends Over Time](price_EDA_photos/price_trends_over_time.png)
+- **Description**: Displays multi-year historical wholesale price trajectories for key vegetable crops (*Okra, Cabbage, Beans, Carrots, Leeks*). It highlights baseline price inflation, sharp spike events, and long-term trend lines across seasons.
+
+### 2. 📅 Seasonal Price Fluctuation by Month
+![Seasonal Price Fluctuation](price_EDA_photos/seasonality_avg_price_by_month.png)
+- **Description**: Monthly price seasonality heat chart mapping average prices across calendar months (Jan–Dec). Identifies annual peak price periods (off-season shortages) and lowest price months (harvest gluts) to guide planting schedules.
+
+### 3. 🌧️ Maha vs. Yala Monsoon Season Comparison
+![Maha vs Yala Season](price_EDA_photos/maha_vs_yala_season.png)
+- **Description**: Comparative analysis of price distributions during Sri Lanka's primary agricultural seasons—**Maha** (Northeast Monsoon, October to March) vs. **Yala** (Southwest Monsoon, April to September), highlighting seasonal yield variation and market supply shifts.
+
+### 4. 🔗 Crop Price Inter-Correlation Heatmap
+![Crop Price Correlation Heatmap](price_EDA_photos/crop_price_correlation_heatmap.png)
+- **Description**: Pearson correlation heatmap showing cross-crop price interactions. High positive correlations indicate vegetables whose wholesale prices rise and fall synchronously due to shared climate inputs or consumer substitution.
+
+### 5. 📊 Yearly Average Price Breakdown by Crop
+![Yearly Average Price by Crop](price_EDA_photos/yearly_avg_price_by_crop.png)
+- **Description**: Year-over-year bar chart comparison of mean prices per crop, illustrating annual price escalation and comparing relative market values across different vegetable varieties.
+
+### 6. 🗺️ Price Distribution Across Districts & Regions
+![Price Distribution by District](price_EDA_photos/price_distribution_by_crop_district.png)
+- **Description**: Boxplot and distribution charts showing wholesale price spreads across key producing and consuming districts (e.g., Nuwara Eliya, Matale, Kandy, Colombo). Highlights regional price disparity driven by supply chain transport costs.
 
 ---
 
