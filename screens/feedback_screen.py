@@ -97,7 +97,14 @@ class FeedbackScreen(Screen):
     selected_rating = 0
 
     def on_pre_enter(self, *args):
+        from kivymd.app import MDApp
         from kivymd.uix.button import MDIconButton
+        app = MDApp.get_running_app()
+        if not app.current_user:
+            if self.manager:
+                self.manager.transition.direction = "right"
+                self.manager.current = "login"
+            return
         self.selected_rating = 0
         self.ids.rating_label.text = ""
         self.star_buttons = []
@@ -133,6 +140,9 @@ class FeedbackScreen(Screen):
     def send(self):
         from kivymd.app import MDApp
         app = MDApp.get_running_app()
+        if not app.current_user:
+            show_snackbar("Please log in first.")
+            return
         message = self.ids.message_field.text.strip()
         if not message:
             show_snackbar("Please write a message first.")
@@ -144,6 +154,9 @@ class FeedbackScreen(Screen):
         self.go_back()
 
     def go_back(self):
+        from kivymd.app import MDApp
+        app = MDApp.get_running_app()
+        target = "admin_dashboard" if app.current_user and app.current_user.get("user_type") == "admin" else "dashboard"
         self.manager.transition.direction = "right"
-        self.manager.current = "dashboard"
+        self.manager.current = target
 

@@ -188,9 +188,10 @@ class LoginScreen(Screen):
 
         def _attempt(*_):
             success, result = login_user(email, password)
+            btn.text = "LOG IN"
+            btn.disabled = False
+            self.ids.password_field.text = ""
             if not success:
-                btn.text = "LOG IN"
-                btn.disabled = False
                 self.ids.error_label.text = result
                 shake(self.ids.email_field)
                 shake(self.ids.password_field)
@@ -199,8 +200,6 @@ class LoginScreen(Screen):
             from kivymd.app import MDApp
             app = MDApp.get_running_app()
             app.current_user = result
-            btn.text = "LOG IN"
-            btn.disabled = False
             app.route_to_dashboard()
 
         Clock.schedule_once(_attempt, 0.12)

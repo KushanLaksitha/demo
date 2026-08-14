@@ -6,8 +6,8 @@ import os
 from kivy.config import Config
 
 # Simulate a phone screen when testing on desktop (comment out for real Android build)
-Config.set("graphics", "width", "400")
-Config.set("graphics", "height", "820")
+Config.set("graphics", "width", "360")
+Config.set("graphics", "height", "640")
 Config.set("graphics", "resizable", "0")
 
 from kivy.uix.screenmanager import ScreenManager, SlideTransition

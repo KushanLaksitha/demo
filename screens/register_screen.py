@@ -252,9 +252,9 @@ KV = """
 Builder.load_string(KV)
 
 ROLE_ICONS = {
-    "farmer": "🌾",
-    "trader": "🛒",
-    "policymaker": "📊",
+    "farmer": "●",
+    "trader": "●",
+    "policymaker": "●",
 }
 
 

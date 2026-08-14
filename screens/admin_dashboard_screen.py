@@ -67,11 +67,19 @@ Builder.load_string(KV)
 def _stars_text(rating):
     if not rating:
         return "No rating given"
-    return "★" * rating + "☆" * (5 - rating)
+    r = int(round(rating))
+    return "★" * r + "☆" * (5 - r)
 
 
 class AdminDashboardScreen(Screen):
     def on_pre_enter(self, *args):
+        from kivymd.app import MDApp
+        app = MDApp.get_running_app()
+        if not app.current_user or app.current_user.get("user_type") != "admin":
+            if self.manager:
+                self.manager.transition.direction = "right"
+                self.manager.current = "login"
+            return
         self.load_feedback()
 
     def on_enter(self, *args):

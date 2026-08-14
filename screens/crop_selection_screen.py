@@ -58,6 +58,11 @@ class CropSelectionScreen(Screen):
         from kivymd.uix.selectioncontrol import MDCheckbox
 
         app = MDApp.get_running_app()
+        if not app.current_user:
+            if self.manager:
+                self.manager.transition.direction = "right"
+                self.manager.current = "login"
+            return
         self.crops = get_all_crops()  # [(id, name), ...]
         preferred = set(get_user_preferred_crop_ids(app.current_user["user_id"]))
         self.checkboxes = {}
@@ -77,11 +82,15 @@ class CropSelectionScreen(Screen):
     def save_and_continue(self):
         from kivymd.app import MDApp
         app = MDApp.get_running_app()
+        if not app.current_user:
+            show_snackbar("Please log in first.")
+            return
         selected = [cid for cid, cb in self.checkboxes.items() if cb.active]
         if not selected:
             show_snackbar("Please select at least one crop.")
             return
         set_user_preferred_crop_ids(app.current_user["user_id"], selected)
         app.current_user["preferred_crop_ids"] = selected
+        show_snackbar("Followed crops updated!")
         self.manager.transition.direction = "left"
         self.manager.current = "dashboard"

@@ -221,11 +221,18 @@ class DashboardScreen(Screen):
         from kivymd.app import MDApp
         self.app = MDApp.get_running_app()
         self.user = self.app.current_user
+        if not self.user:
+            if self.manager:
+                self.manager.transition.direction = "right"
+                self.manager.current = "login"
+            return
         self.crops = get_all_crops()
         pref_ids = get_user_preferred_crop_ids(self.user["user_id"])
-        self.followed_crop_ids = pref_ids or [c[0] for c in self.crops]
+        self.followed_crop_ids = pref_ids or ([c[0] for c in self.crops] if self.crops else [])
         if self.crops:
             self.history_crop_id, self.history_crop_name = self.crops[0]
+        else:
+            self.history_crop_id, self.history_crop_name = None, None
         self.load_home()
         self._build_history_crop_chips()
 
@@ -261,7 +268,7 @@ class DashboardScreen(Screen):
         role = self.user["user_type"]
         name_row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(36))
         greet_lbl = MDLabel(
-            text=f"Hi {self.user['first_name']} 👋",
+            text=f"Hi {self.user['first_name']}",
             font_style="H5", bold=True,
             theme_text_color="Custom", text_color=(1, 1, 1, 1),
         )
@@ -285,7 +292,7 @@ class DashboardScreen(Screen):
         )
         region_row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(22))
         region_lbl = MDLabel(
-            text=f"📍 {self.user.get('district') or 'No district set'}",
+            text=f"● {self.user.get('district') or 'No district set'}",
             font_style="Caption",
             theme_text_color="Custom", text_color=(0.85, 1, 0.87, 1),
         )
@@ -301,7 +308,7 @@ class DashboardScreen(Screen):
             padding=(dp(8), dp(4), dp(8), dp(4)),
         )
         weather_lbl = MDLabel(
-            text=f"🌤 {temp:.0f}°C",
+            text=f"● {temp:.0f}°C",
             font_style="Caption", halign="center",
             theme_text_color="Custom", text_color=(1, 1, 1, 1),
         )
@@ -327,7 +334,7 @@ class DashboardScreen(Screen):
 
         # Market snapshot section label
         snap_lbl = MDLabel(
-            text="📈  Market snapshot — your followed crops",
+            text="●  Market snapshot — your followed crops",
             bold=True, font_style="Subtitle1",
             theme_text_color="Custom", text_color=(0.1, 0.1, 0.1, 1),
             size_hint_y=None, height=dp(34),
@@ -350,7 +357,7 @@ class DashboardScreen(Screen):
 
         # ── Weather Impact section ────────────────────────────────────
         w_lbl = MDLabel(
-            text="🌤️  Weather Impact Analysis",
+            text="●  Weather Impact Analysis",
             bold=True, font_style="Subtitle1",
             theme_text_color="Custom", text_color=(0.1, 0.1, 0.1, 1),
             size_hint_y=None, height=dp(34),
@@ -453,16 +460,16 @@ class DashboardScreen(Screen):
             bold=True, theme_text_color="Custom", text_color=(0.10, 0.20, 0.38, 1),
         ))
         top_row.add_widget(MDLabel(
-            text=f"📅 {w_data.get('record_date', '')}",
+            text=f"● {w_data.get('record_date', '')}",
             halign="right", font_style="Caption",
             theme_text_color="Custom", text_color=(0.42, 0.47, 0.57, 1),
         ))
 
         stat_row = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40))
         for txt in [
-            f"🌧️ Rain\n{w_data.get('rainfall_mm', 0):.0f} mm",
-            f"🌡️ Temp\n{w_data.get('avg_temp_c', 0):.1f} °C",
-            f"💧 Humidity\n{w_data.get('humidity_pct', 0):.0f} %",
+            f"● Rain\n{w_data.get('rainfall_mm', 0):.0f} mm",
+            f"● Temp\n{w_data.get('avg_temp_c', 0):.1f} °C",
+            f"● Humidity\n{w_data.get('humidity_pct', 0):.0f} %",
         ]:
             stat_row.add_widget(MDLabel(
                 text=txt, font_style="Caption", halign="center",
@@ -476,19 +483,19 @@ class DashboardScreen(Screen):
         # Risk / irrigation / yield cards
         advisory_items = [
             {
-                "icon": "🛡️", "title": "Disease Risk",
+                "icon": "●", "title": "Disease Risk",
                 "value": w_data.get("harvest_risk", ""),
                 "detail": w_data.get("harvest_risk_detail", ""),
                 "bg": (1, 0.95, 0.92, 1), "title_color": (0.78, 0.28, 0.10, 1),
             },
             {
-                "icon": "💧", "title": "Irrigation Advisory",
+                "icon": "●", "title": "Irrigation Advisory",
                 "value": w_data.get("irrigation_advice", ""),
                 "detail": w_data.get("irrigation_advice_detail", ""),
                 "bg": (0.91, 0.95, 1, 1), "title_color": (0.12, 0.38, 0.72, 1),
             },
             {
-                "icon": "🌱", "title": "Yield Outlook",
+                "icon": "●", "title": "Yield Outlook",
                 "value": w_data.get("yield_impact", ""),
                 "detail": w_data.get("yield_impact_detail", ""),
                 "bg": (0.91, 0.97, 0.91, 1), "title_color": (0.18, 0.52, 0.22, 1),
@@ -543,7 +550,7 @@ class DashboardScreen(Screen):
                 padding=(dp(20), dp(40), dp(20), dp(20)),
             )
             icon_lbl = MDLabel(
-                text="💡", halign="center", font_style="H2",
+                text="●", halign="center", font_style="H2",
                 size_hint_y=None, height=dp(60),
             )
             msg_lbl = MDLabel(
@@ -634,7 +641,7 @@ class DashboardScreen(Screen):
 
         if not alerts:
             empty = MDLabel(
-                text="✅  All caught up! No alerts right now.",
+                text="●  All caught up! No alerts right now.",
                 halign="center", theme_text_color="Custom",
                 text_color=(0.45, 0.45, 0.45, 1),
                 size_hint_y=None, height=dp(60),
@@ -719,7 +726,7 @@ class DashboardScreen(Screen):
         row = self.ids.history_crop_chips
         row.clear_widgets()
         self._history_chip_widgets = {}
-        followed = [c for c in self.crops if c[0] in self.followed_crop_ids]
+        followed = [c for c in (self.crops or []) if c[0] in self.followed_crop_ids]
 
         for crop_id, crop_name in followed:
             chip = self._make_hist_chip(crop_id, crop_name)
@@ -730,6 +737,8 @@ class DashboardScreen(Screen):
         if followed:
             self.history_crop_id, self.history_crop_name = followed[0]
             self._select_history_chip(followed[0][0])
+        else:
+            self.history_crop_id, self.history_crop_name = None, None
 
     def _make_hist_chip(self, crop_id, crop_name):
         from kivymd.uix.card import MDCard
@@ -911,11 +920,11 @@ class DashboardScreen(Screen):
             b.bind(on_release=lambda inst: bounce_scale(inst))
             return b
 
-        edit_btn      = _btn("✏️  Edit Profile Details",  (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
-        crops_btn     = _btn("🌾  Edit Followed Crops",    (0.38, 0.75, 0.40, 1), self.edit_crops)
-        feedback_btn  = _btn("💬  Send Feedback",          (0.91, 0.96, 0.91, 1), self.go_feedback,
+        edit_btn      = _btn("●  Edit Profile Details",  (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
+        crops_btn     = _btn("●  Edit Followed Crops",    (0.38, 0.75, 0.40, 1), self.edit_crops)
+        feedback_btn  = _btn("●  Send Feedback",          (0.91, 0.96, 0.91, 1), self.go_feedback,
                               txt_color=(0.10, 0.10, 0.10, 1))
-        logout_btn    = _btn("🚪  Log Out",                (0.85, 0.20, 0.20, 1), self.logout)
+        logout_btn    = _btn("●  Log Out",                (0.85, 0.20, 0.20, 1), self.logout)
 
         for b in [edit_btn, crops_btn, feedback_btn, logout_btn]:
             box.add_widget(b)
@@ -992,6 +1001,7 @@ class DashboardScreen(Screen):
                 self.app.current_user = res
                 self.edit_dialog.dismiss()
                 self.load_profile()
+                self.load_home()
                 show_snackbar("Profile updated successfully!")
             else:
                 show_snackbar(f"Failed to update: {res}")
