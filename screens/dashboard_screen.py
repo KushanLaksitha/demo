@@ -702,17 +702,10 @@ class DashboardScreen(Screen):
         box.spacing = dp(14)
         cards = []
 
-        # ── 1. TOP BAR (Hamburger Icon, "Stocks" title, Search Icon) ──────────
+        # ── 1. TOP BAR ("Stocks" title only) ──────────────────────────
         top_bar = MDBoxLayout(
             orientation="horizontal",
             size_hint_y=None, height=dp(40),
-            spacing=dp(10),
-        )
-        menu_btn = MDIconButton(
-            icon="menu",
-            theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
-            pos_hint={"center_y": 0.5},
-            on_release=lambda x: self._refresh_home(),
         )
         title_lbl = MDLabel(
             text="Stocks",
@@ -720,14 +713,7 @@ class DashboardScreen(Screen):
             theme_text_color="Custom", text_color=(0.07, 0.10, 0.15, 1),
             pos_hint={"center_y": 0.5},
         )
-        search_icon_btn = MDIconButton(
-            icon="magnify",
-            theme_text_color="Custom", text_color=(0.10, 0.14, 0.20, 1),
-            pos_hint={"center_y": 0.5},
-        )
-        top_bar.add_widget(menu_btn)
         top_bar.add_widget(title_lbl)
-        top_bar.add_widget(search_icon_btn)
         box.add_widget(top_bar)
         cards.append(top_bar)
 
