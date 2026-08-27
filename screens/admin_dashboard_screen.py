@@ -692,25 +692,46 @@ class AdminDashboardScreen(Screen):
         cards = []
         for f in items:
             reviewed = f["status"] == "reviewed"
-            card = MDCard(orientation="vertical", padding=dp(12), spacing=dp(4),
-                            size_hint_y=None, height=dp(130), radius=[12, 12, 12, 12],
+            card = MDCard(orientation="vertical", padding=dp(12), spacing=dp(6),
+                            size_hint_y=None, height=self.minimum_height, radius=[12, 12, 12, 12],
                             md_bg_color=(1, 1, 1, 1) if reviewed else (0.933, 0.965, 0.933, 1),
                             elevation=0 if reviewed else 1)
-            card.add_widget(MDLabel(text=_stars_text(f["rating"]),
-                                      theme_text_color="Custom", text_color=(0.98, 0.75, 0.14, 1),
-                                      size_hint_y=None, height=dp(22)))
-            card.add_widget(MDLabel(text=f["message"], theme_text_color="Custom",
-                                      text_color=(0.1, 0.1, 0.1, 1)))
-            meta = MDLabel(text=f"From {f['from']} · {f['submitted_at'].strftime('%d %b %Y')} · "
-                                  f"{'Reviewed' if reviewed else 'New'}",
-                             font_style="Caption", theme_text_color="Custom",
-                             text_color=(0.42, 0.42, 0.42, 1))
+
+            rating_row = MDBoxLayout(size_hint_y=None, height=dp(24), spacing=dp(6))
+            rating_row.add_widget(MDLabel(
+                text=_stars_text(f["rating"]),
+                theme_text_color="Custom",
+                text_color=(0.98, 0.75, 0.14, 1),
+                bold=True
+            ))
+            card.add_widget(rating_row)
+
+            msg_label = MDLabel(
+                text=f["message"],
+                theme_text_color="Custom",
+                text_color=(0.1, 0.1, 0.1, 1),
+                size_hint_y=None,
+                font_style="Body2"
+            )
+            msg_label.bind(texture_size=lambda instance, value: setattr(instance, 'height', value[1]))
+            card.add_widget(msg_label)
+
+            meta = MDLabel(
+                text=f"From {f['from']} · {f['submitted_at'].strftime('%d %b %Y %H:%M')} · {'Reviewed' if reviewed else 'New'}",
+                font_style="Caption",
+                theme_text_color="Custom",
+                text_color=(0.45, 0.45, 0.45, 1),
+                size_hint_y=None,
+                height=dp(18)
+            )
             card.add_widget(meta)
+
             if not reviewed:
                 btn = MDFlatButton(text="Mark reviewed", theme_text_color="Custom",
-                                     text_color=(0.3, 0.6, 0.35, 1),
+                                     text_color=(0.25, 0.62, 0.30, 1),
                                      on_release=lambda x, fid=f["id"]: self.mark_reviewed(fid))
                 card.add_widget(btn)
+
             box.add_widget(card)
             cards.append(card)
         stagger_fade_in(cards, step=0.05, duration=0.25)
