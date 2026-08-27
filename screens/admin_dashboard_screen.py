@@ -693,9 +693,10 @@ class AdminDashboardScreen(Screen):
         for f in items:
             reviewed = f["status"] == "reviewed"
             card = MDCard(orientation="vertical", padding=dp(12), spacing=dp(6),
-                            size_hint_y=None, height=self.minimum_height, radius=[12, 12, 12, 12],
+                            size_hint_y=None, radius=[12, 12, 12, 12],
                             md_bg_color=(1, 1, 1, 1) if reviewed else (0.933, 0.965, 0.933, 1),
                             elevation=0 if reviewed else 1)
+            card.bind(minimum_height=card.setter("height"))
 
             rating_row = MDBoxLayout(size_hint_y=None, height=dp(24), spacing=dp(6))
             rating_row.add_widget(MDLabel(
