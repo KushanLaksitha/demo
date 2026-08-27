@@ -245,6 +245,106 @@ def mark_feedback_reviewed(feedback_id):
         db.close()
 
 
+@db_safe(default=list)
+def get_all_users_for_admin(role_filter=None, search_query=None):
+    """Retrieves all user accounts for admin view with optional role filter and search."""
+    db = get_session()
+    try:
+        q = db.query(User)
+        if role_filter and role_filter.lower() != "all":
+            q = q.filter(User.user_type == role_filter.lower())
+        if search_query and search_query.strip():
+            sq = f"%{search_query.strip().lower()}%"
+            q = q.filter(
+                (User.email.ilike(sq)) |
+                (User.first_name.ilike(sq)) |
+                (User.last_name.ilike(sq))
+            )
+        users = q.order_by(User.created_at.desc()).all()
+        out = []
+        for u in users:
+            r = db.query(Region).filter_by(region_id=u.region_id).first() if u.region_id else None
+            out.append({
+                "user_id": u.user_id,
+                "email": u.email,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "full_name": f"{u.first_name} {u.last_name}",
+                "user_type": u.user_type,
+                "region_id": u.region_id,
+                "district": r.district if r else "Not specified",
+                "is_active": u.is_active,
+                "created_at": u.created_at,
+            })
+        return out
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: (False, "Database error"))
+def toggle_user_status_by_admin(user_id):
+    """Toggles active/suspended status of a user."""
+    db = get_session()
+    try:
+        user = db.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return False, "User not found."
+        user.is_active = not user.is_active
+        db.commit()
+        status_text = "activated" if user.is_active else "suspended"
+        return True, f"Account for {user.email} is now {status_text}."
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: (False, "Database error"))
+def update_user_role_by_admin(user_id, new_role):
+    """Updates user role by admin."""
+    from database.auth_service import ALL_ROLES
+    if new_role not in ALL_ROLES:
+        return False, "Invalid role specified."
+    db = get_session()
+    try:
+        user = db.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return False, "User not found."
+        user.user_type = new_role
+        db.commit()
+        return True, f"Role for {user.email} updated to {new_role.capitalize()}."
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: (False, "Database error"))
+def delete_user_by_admin(user_id):
+    """Safely deletes user account and associated user data."""
+    db = get_session()
+    try:
+        user = db.query(User).filter_by(user_id=user_id).first()
+        if not user:
+            return False, "User not found."
+        email = user.email
+        # Cleanup dependent records first
+        db.query(UserPreferences).filter_by(user_id=user_id).delete()
+        db.query(Alert).filter_by(user_id=user_id).delete()
+        db.query(Recommendation).filter_by(user_id=user_id).delete()
+        db.query(Feedback).filter_by(user_id=user_id).delete()
+        db.delete(user)
+        db.commit()
+        return True, f"User {email} has been permanently deleted."
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+    finally:
+        db.close()
+
+
 
 @db_safe(default=lambda: (False, "Database error"))
 def update_user_profile(user_id, first_name, last_name, region_id=None):

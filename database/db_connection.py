@@ -17,6 +17,27 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "vectamind_db")
 
 
+def run_schema_migrations(engine):
+    """
+    Executes automatic schema updates (e.g. converting user_type to ENUM in MySQL,
+    dropping legacy check constraints) to ensure seamless compatibility across all devices.
+    """
+    try:
+        dial_name = engine.dialect.name
+        if dial_name == "mysql":
+            with engine.begin() as conn:
+                try:
+                    conn.execute(text("ALTER TABLE user DROP CHECK chk_user_type"))
+                except Exception:
+                    pass
+                conn.execute(text("ALTER TABLE user MODIFY COLUMN user_type ENUM('farmer', 'trader', 'policymaker', 'admin') NOT NULL"))
+            print("[DB Migration] MySQL user_type column updated to ENUM('farmer', 'trader', 'policymaker', 'admin').")
+        elif dial_name == "sqlite":
+            pass
+    except Exception as e:
+        print(f"[DB Migration] Schema migration check: {e}")
+
+
 def create_db_engine():
     """
     Initializes SQLAlchemy engine.
@@ -29,11 +50,12 @@ def create_db_engine():
         f"?charset=utf8mb4"
     )
     try:
-        engine = create_engine(mysql_url, echo=False, pool_pre_ping=True, pool_recycle=3600)
-        with engine.connect() as conn:
+        eng = create_engine(mysql_url, echo=False, pool_pre_ping=True, pool_recycle=3600)
+        with eng.connect() as conn:
             conn.exec_driver_sql("SELECT 1")
         print("[DB] Connected to MySQL database successfully.")
-        return engine
+        run_schema_migrations(eng)
+        return eng
     except Exception as e:
         # Try auto-creating the MySQL database if server is up
         try:
@@ -41,17 +63,20 @@ def create_db_engine():
             root_engine = create_engine(server_url)
             with root_engine.connect() as conn:
                 conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
-            engine = create_engine(mysql_url, echo=False, pool_pre_ping=True, pool_recycle=3600)
-            with engine.connect() as conn:
+            eng = create_engine(mysql_url, echo=False, pool_pre_ping=True, pool_recycle=3600)
+            with eng.connect() as conn:
                 conn.exec_driver_sql("SELECT 1")
             print(f"[DB] Created and connected to MySQL database '{DB_NAME}'.")
-            return engine
+            run_schema_migrations(eng)
+            return eng
         except Exception as err2:
             print(f"[DB] MySQL server unreachable ({e}). Falling back to SQLite ('agrisense.db').")
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             db_path = os.path.join(project_root, "agrisense.db")
             sqlite_url = f"sqlite:///{db_path}"
-            return create_engine(sqlite_url, echo=False)
+            eng = create_engine(sqlite_url, echo=False)
+            run_schema_migrations(eng)
+            return eng
 
 
 engine = create_db_engine()

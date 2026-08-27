@@ -9,14 +9,16 @@ from utils.auth_utils import (
     send_confirmation_email, token_is_expired
 )
 
-ROLES = ["farmer", "trader", "policymaker"]
+PUBLIC_ROLES = ["farmer", "trader"]
+ALL_ROLES = ["farmer", "trader", "policymaker", "admin"]
+ROLES = PUBLIC_ROLES
 
 
 def register_user(email, password, first_name, last_name, user_type, region_id, crop_ids=None):
     db = get_session()
     try:
-        if user_type not in ROLES:
-            return False, "Invalid role selected."
+        if user_type not in PUBLIC_ROLES:
+            return False, "Public registration is only allowed for Farmers and Traders."
         existing = db.query(User).filter_by(email=email.strip().lower()).first()
         if existing:
             return False, "An account with this email already exists."
@@ -49,6 +51,43 @@ def register_user(email, password, first_name, last_name, user_type, region_id, 
     except Exception as e:
         db.rollback()
         return False, f"Registration failed: {e}"
+    finally:
+        db.close()
+
+
+def admin_create_user(email, password, first_name, last_name, user_type, region_id, crop_ids=None):
+    """Admin function to create user accounts directly (e.g. policymaker) with active state."""
+    db = get_session()
+    try:
+        if user_type not in ALL_ROLES:
+            return False, "Invalid role specified."
+        existing = db.query(User).filter_by(email=email.strip().lower()).first()
+        if existing:
+            return False, "An account with this email already exists."
+
+        user = User(
+            email=email.strip().lower(),
+            password=hash_password(password),
+            user_type=user_type,
+            first_name=first_name.strip(),
+            last_name=last_name.strip(),
+            region_id=region_id,
+            is_active=True,
+            token_created_at=datetime.utcnow(),
+        )
+        db.add(user)
+        db.commit()
+
+        if crop_ids:
+            from database.models import UserPreferences
+            db.add(UserPreferences(user_id=user.user_id,
+                                     preferred_crops=",".join(str(c) for c in crop_ids)))
+            db.commit()
+
+        return True, f"Successfully created {user_type.capitalize()} account for {email}."
+    except Exception as e:
+        db.rollback()
+        return False, f"Failed to create user: {e}"
     finally:
         db.close()
 

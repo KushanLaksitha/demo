@@ -3,11 +3,13 @@ SQLAlchemy ORM models mirroring database/schema.sql
 """
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, DECIMAL, Date, DateTime, ForeignKey
+    Column, Integer, String, Text, Boolean, DECIMAL, Date, DateTime, ForeignKey, Enum as SQLEnum
 )
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
+UserRoleEnum = SQLEnum('farmer', 'trader', 'policymaker', 'admin', name='user_role_enum')
 
 
 class Region(Base):
@@ -22,7 +24,7 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(150), nullable=False, unique=True)
     password = Column(String(255), nullable=False)   # bcrypt hash
-    user_type = Column(String(30), nullable=False)    # farmer/trader/policymaker/admin
+    user_type = Column(UserRoleEnum, nullable=False)    # farmer/trader/policymaker/admin
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     region_id = Column(Integer, ForeignKey("region.region_id"))

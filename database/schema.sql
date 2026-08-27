@@ -26,7 +26,7 @@ CREATE TABLE user (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,          -- bcrypt hash
-    user_type VARCHAR(30) NOT NULL,
+    user_type ENUM('farmer', 'trader', 'policymaker', 'admin') NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     region_id INT NULL,
@@ -34,9 +34,6 @@ CREATE TABLE user (
     confirmation_token VARCHAR(255) NULL,
     token_created_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_user_type CHECK (
-        user_type IN ('farmer', 'trader', 'policymaker', 'admin')
-    ),
     CONSTRAINT fk_user_region FOREIGN KEY (region_id)
         REFERENCES region(region_id) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;

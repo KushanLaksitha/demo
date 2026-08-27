@@ -11,7 +11,7 @@ from kivy.clock import Clock
 from kivy.metrics import dp
 from kivymd.uix.menu import MDDropdownMenu
 from utils.layout_helpers import show_snackbar
-from database.auth_service import register_user, ROLES
+from database.auth_service import register_user, PUBLIC_ROLES, ROLES
 from database.data_service import get_all_regions, get_all_crops, last_db_error_occurred
 from utils.validators import (
     is_valid_email_format, email_already_registered, check_password_strength,
@@ -254,7 +254,6 @@ Builder.load_string(KV)
 ROLE_ICONS = {
     "farmer": "●",
     "trader": "●",
-    "policymaker": "●",
 }
 
 
@@ -283,7 +282,7 @@ class RegisterScreen(Screen):
         row = self.ids.role_chip_row
         row.clear_widgets()
         self._role_chips = {}
-        for role in ROLES:
+        for role in PUBLIC_ROLES:
             chip = self._make_role_chip(role)
             row.add_widget(chip)
             self._role_chips[role] = chip
