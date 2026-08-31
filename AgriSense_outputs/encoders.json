@@ -1,0 +1,17 @@
+{
+  "Season": {
+    "Maha": 0,
+    "Yala": 1
+  },
+  "Vegetable": {
+    "Beans": 0,
+    "Cabbage": 1,
+    "Carrots": 2,
+    "Leeks": 3,
+    "Okra": 4
+  },
+  "District": {
+    "Kandy": 0,
+    "Matale": 1
+  }
+}

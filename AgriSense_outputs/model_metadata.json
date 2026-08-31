@@ -1,0 +1,55 @@
+{
+  "price_model": {
+    "file": "models/best_price_model.pkl",
+    "algorithm": "RandomForest",
+    "features_in_order": [
+      "Week No",
+      "Month",
+      "Year",
+      "Season_enc",
+      "Vegetable_enc",
+      "District_enc",
+      "Temperature (\u00b0C)",
+      "Rainfall (mm)",
+      "Humidity (%)",
+      "Cultivated Area (ha)",
+      "Yield (Mt/ha)",
+      "Price_lag_1",
+      "Price_lag_2",
+      "Price_lag_3",
+      "Price_rolling_mean_3"
+    ],
+    "target": "Price (Rs/kg)"
+  },
+  "production_model": {
+    "file": "models/best_production_model.pkl",
+    "algorithm": "GradientBoosting",
+    "features_in_order": [
+      "Year",
+      "Season_enc",
+      "Vegetable_enc",
+      "District_enc",
+      "Cultivated Area (ha)",
+      "Temperature (\u00b0C)",
+      "Rainfall (mm)",
+      "Humidity (%)",
+      "Production_lag_1"
+    ],
+    "target": "Production Volume (Mt)"
+  },
+  "weather_model": {
+    "file": "models/best_weather_model.pkl",
+    "algorithm": "GradientBoosting",
+    "features_in_order": [
+      "Month",
+      "Year",
+      "District_enc",
+      "Temperature (\u00b0C)",
+      "Humidity (%)",
+      "Rainfall_lag_1"
+    ],
+    "target": "Rainfall (mm)"
+  },
+  "categorical_encoders": "encoders.json",
+  "notes": "Categorical inputs (Season, Vegetable, District) must be converted to their integer code via encoders.json BEFORE being passed to the models, in the exact feature order listed above."
+}
