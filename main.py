@@ -3,6 +3,7 @@ AgriSense — AI-driven vegetable production & price optimization app.
 Run with:  python main.py
 """
 import os
+import threading
 from kivy.config import Config
 
 # Simulate a phone screen when testing on desktop (comment out for real Android build)
@@ -52,6 +53,9 @@ class AgriSenseApp(MDApp):
         else:
             print("[AgriSense] WARNING: Database connection failed.")
 
+        # Preload ML models in background so they're warm by dashboard open
+        self._preload_ml_models_async()
+
         sm = ScreenManager(transition=SlideTransition(duration=0.28))
         sm.add_widget(LoadingScreen(name="loading"))
         sm.add_widget(LoginScreen(name="login"))
@@ -61,6 +65,17 @@ class AgriSenseApp(MDApp):
         sm.add_widget(AdminDashboardScreen(name="admin_dashboard"))
         sm.add_widget(FeedbackScreen(name="feedback"))
         return sm
+
+    def _preload_ml_models_async(self):
+        """Load ML models in background so the first prediction is instant."""
+        def _load():
+            try:
+                from utils.ml_engine import preload_models
+                ok = preload_models()
+                print(f"[AgriSense] ML models preloaded: {ok}")
+            except Exception as e:
+                print(f"[AgriSense] ML preload error (non-fatal): {e}")
+        threading.Thread(target=_load, daemon=True).start()
 
     def route_to_dashboard(self):
         """Called by LoginScreen after a successful login — sends each role

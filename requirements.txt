@@ -7,8 +7,9 @@ matplotlib==3.9.0
 kivy-garden.matplotlib==0.1.1.dev0
 python-dotenv==1.0.1
 pandas==2.2.2
-numpy==1.26.4
+numpy>=2.0.0
 tensorflow==2.16.1
-scikit-learn==1.5.0
+scikit-learn==1.6.1
+joblib>=1.3.0
 Pillow==10.3.0
 Flask==3.0.3

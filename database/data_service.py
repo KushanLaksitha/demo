@@ -552,4 +552,189 @@ def get_weather_impact_analysis(region_id=None):
         db.close()
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# ML INTEGRATION HELPERS
+# ══════════════════════════════════════════════════════════════════════════
 
+@db_safe(default=dict)
+def get_latest_prices_for_crops(region_id=None):
+    """Return {crop_name: latest_price_float} for all crops.
+    Used to compare predicted vs. current price."""
+    db = get_session()
+    try:
+        crops = db.query(Crop).all()
+        result = {}
+        for c in crops:
+            q = db.query(Price).filter_by(crop_id=c.crop_id)
+            if region_id:
+                q = q.filter_by(region_id=region_id)
+            latest = q.order_by(Price.date.desc()).first()
+            if latest:
+                result[c.crop_name] = float(latest.price)
+        return result
+    finally:
+        db.close()
+
+
+@db_safe(default=dict)
+def get_lag_features_for_crops(region_id=None):
+    """Return {crop_name: {price_lag_1, price_lag_2, price_lag_3,
+    production_lag_1, cultivated_area, yield_per_ha}} derived from the
+    most recent DB records.  Used as features for ML model input."""
+    db = get_session()
+    try:
+        crops = db.query(Crop).all()
+        result = {}
+        for c in crops:
+            # Price lags — last 3 prices
+            pq = db.query(Price).filter_by(crop_id=c.crop_id)
+            if region_id:
+                pq = pq.filter_by(region_id=region_id)
+            recent_prices = pq.order_by(Price.date.desc()).limit(3).all()
+            price_lags = [float(r.price) for r in recent_prices]
+            while len(price_lags) < 3:
+                price_lags.append(200.0)  # fallback default
+
+            # Production lag — last production record
+            prq = db.query(Production).filter_by(crop_id=c.crop_id)
+            if region_id:
+                prq = prq.filter_by(region_id=region_id)
+            last_prod = prq.order_by(Production.record_date.desc()).first()
+
+            result[c.crop_name] = {
+                "price_lag_1": price_lags[0],
+                "price_lag_2": price_lags[1],
+                "price_lag_3": price_lags[2],
+                "production_lag_1": float(last_prod.quantity) if last_prod else 1000.0,
+                "cultivated_area": 100.0,  # not in DB per-crop; use dataset average
+                "yield_per_ha": 10.0,      # approximate
+            }
+        return result
+    finally:
+        db.close()
+
+
+@db_safe(default=dict)
+def get_current_weather(region_id=None):
+    """Return the latest climate record as a dict suitable for ml_engine.
+    Keys: temperature, rainfall, humidity."""
+    db = get_session()
+    try:
+        q = db.query(Climate)
+        if region_id:
+            q = q.filter_by(region_id=region_id)
+        latest = q.order_by(Climate.record_date.desc()).first()
+        if not latest:
+            return {"temperature": 26.0, "rainfall": 140.0, "humidity": 80.0}
+        return {
+            "temperature": float(latest.avg_temp_c or 26.0),
+            "rainfall": float(latest.rainfall_mm or 140.0),
+            "humidity": float(latest.humidity_pct or 80.0),
+        }
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: None)
+def save_ml_prediction(prediction_type, prediction_value, prediction_date,
+                       crop_id, region_id=None):
+    """Save a single ML prediction to the prediction table."""
+    db = get_session()
+    try:
+        pred = Prediction(
+            prediction_type=prediction_type,
+            prediction_value=round(prediction_value, 2),
+            prediction_date=prediction_date,
+            crop_id=crop_id,
+            region_id=region_id,
+        )
+        db.add(pred)
+        db.commit()
+        return pred.prediction_id
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: None)
+def save_ml_alert(alert_type, message, user_id, prediction_id=None):
+    """Save an ML-generated alert to the alert table."""
+    db = get_session()
+    try:
+        alert = Alert(
+            alert_type=alert_type,
+            message=message,
+            prediction_id=prediction_id,
+            user_id=user_id,
+        )
+        db.add(alert)
+        db.commit()
+        return alert.alert_id
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: None)
+def save_ml_recommendation(message, user_id, prediction_id=None, region_id=None):
+    """Save an ML-generated recommendation to the recommendation table."""
+    db = get_session()
+    try:
+        rec = Recommendation(
+            message=message,
+            user_id=user_id,
+            prediction_id=prediction_id,
+            region_id=region_id,
+        )
+        db.add(rec)
+        db.commit()
+        return rec.recommendation_id
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: None)
+def get_last_ml_run_time(user_id):
+    """Return the created_at of the most recent ML-generated recommendation
+    for this user, so we can implement 24h caching."""
+    db = get_session()
+    try:
+        latest = db.query(Recommendation).filter_by(user_id=user_id).order_by(
+            Recommendation.created_at.desc()).first()
+        return latest.created_at if latest else None
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: False)
+def clear_old_ml_data(user_id):
+    """Remove old ML-generated alerts and recommendations for a user
+    before inserting fresh ones (prevents unbounded growth)."""
+    db = get_session()
+    try:
+        db.query(Alert).filter_by(user_id=user_id).delete()
+        db.query(Recommendation).filter_by(user_id=user_id).delete()
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+
+@db_safe(default=dict)
+def get_crop_name_to_id_map():
+    """Return {crop_name: crop_id} mapping."""
+    db = get_session()
+    try:
+        crops = db.query(Crop).all()
+        return {c.crop_name: c.crop_id for c in crops}
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: None)
+def get_region_district(region_id):
+    """Return the district name for a region_id."""
+    db = get_session()
+    try:
+        r = db.query(Region).filter_by(region_id=region_id).first()
+        return r.district if r else None
+    finally:
+        db.close()

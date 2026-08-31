@@ -7,7 +7,8 @@ Dashboard screen – full interactive overhaul.
 • History: pill toggle switch + chip crop selector
 • Profile: avatar circle with initials, bounce-scale buttons
 """
-from datetime import datetime
+from datetime import datetime, timedelta
+import threading
 from kivy.lang import Builder
 from kivy.uix.screenmanager import Screen
 from kivy.metrics import dp
@@ -17,6 +18,9 @@ from database.data_service import (
     get_market_summary, get_recommendations_for_user, get_alerts_for_user,
     mark_alert_read, get_all_crops, get_price_history, get_production_history,
     get_user_preferred_crop_ids, get_market_demand_trends, get_weather_impact_analysis,
+    get_latest_prices_for_crops, get_lag_features_for_crops, get_current_weather,
+    save_ml_alert, save_ml_recommendation, get_last_ml_run_time,
+    clear_old_ml_data, get_crop_name_to_id_map, get_region_district,
 )
 from utils.animations import (
     fade_in, stagger_fade_in, bounce_scale, ripple_flash,
@@ -217,6 +221,9 @@ class DashboardScreen(Screen):
     history_crop_name = None
     _history_chip_widgets = {}   # crop_id -> chip card
 
+    _ml_predictions_cache = None   # cached ML predictions dict
+    _ml_running = False            # guard against parallel ML runs
+
     def on_pre_enter(self, *args):
         from kivymd.app import MDApp
         self.app = MDApp.get_running_app()
@@ -237,6 +244,81 @@ class DashboardScreen(Screen):
             self.ids.bottom_nav.switch_tab("home")
         self.load_home()
         self._build_history_crop_chips()
+        # Trigger ML predictions in background
+        self._run_ml_predictions_async()
+
+    def _run_ml_predictions_async(self):
+        """Run ML predictions in a background thread, then persist
+        recommendations & alerts to the DB.  Uses 24h caching."""
+        if self._ml_running:
+            return
+        user_id = self.user["user_id"]
+        # Check 24h cache
+        last_run = get_last_ml_run_time(user_id)
+        if last_run and (datetime.utcnow() - last_run) < timedelta(hours=24):
+            print("[ML] Using cached predictions (< 24h old).")
+            return
+        self._ml_running = True
+        t = threading.Thread(target=self._ml_worker, daemon=True)
+        t.start()
+
+    def _ml_worker(self):
+        """Background thread: run models, generate recs & alerts, save to DB."""
+        try:
+            from utils.ml_engine import run_all_predictions
+            from utils.recommendation_engine import generate_recommendations
+            from utils.alert_engine import generate_alerts
+
+            user_id = self.user["user_id"]
+            region_id = self.user.get("region_id")
+            district = get_region_district(region_id) if region_id else "Kandy"
+
+            # Gather crop names the user follows
+            crop_names = [c[1] for c in self.crops
+                          if c[0] in self.followed_crop_ids]
+            if not crop_names:
+                crop_names = [c[1] for c in self.crops] if self.crops else []
+
+            # Fetch live data from DB for model features
+            weather = get_current_weather(region_id)
+            lag_data = get_lag_features_for_crops(region_id)
+            current_prices = get_latest_prices_for_crops(region_id)
+
+            # Run all 3 models
+            predictions = run_all_predictions(
+                district=district,
+                vegetable_names=crop_names,
+                current_weather=weather,
+                lag_data=lag_data,
+            )
+            self._ml_predictions_cache = predictions
+
+            # Generate recommendations & alerts
+            recs = generate_recommendations(predictions, current_prices)
+            alerts = generate_alerts(predictions, current_prices)
+
+            # Clear old data and save fresh
+            clear_old_ml_data(user_id)
+
+            for rec in recs:
+                save_ml_recommendation(
+                    message=rec["message"],
+                    user_id=user_id,
+                    region_id=region_id,
+                )
+
+            for alert in alerts:
+                save_ml_alert(
+                    alert_type=alert["alert_type"],
+                    message=alert["message"],
+                    user_id=user_id,
+                )
+
+            print(f"[ML] Generated {len(recs)} recommendations, {len(alerts)} alerts.")
+        except Exception as e:
+            print(f"[ML] Background prediction error: {e}")
+        finally:
+            self._ml_running = False
 
     # ══════════════════════════════════════════════════════════════════════
     # HOME TAB
@@ -1589,47 +1671,220 @@ class DashboardScreen(Screen):
     # ══════════════════════════════════════════════════════════════════════
     def load_recommendations(self):
         from kivymd.uix.card import MDCard
-        from kivymd.uix.label import MDLabel
+        from kivymd.uix.label import MDLabel, MDIcon
         from kivymd.uix.boxlayout import MDBoxLayout
         from kivymd.uix.button import MDIconButton
 
         box = self.ids.rec_box
         box.clear_widgets()
-        recs = get_recommendations_for_user(self.user["user_id"])
 
-        if not recs:
+        # --- Try ML-generated recs first, fall back to DB ---
+        ml_recs = self._get_ml_recommendations()
+        db_recs = get_recommendations_for_user(self.user["user_id"])
+
+        if ml_recs:
+            self._render_ml_recommendations(box, ml_recs)
+        elif db_recs:
+            self._render_db_recommendations(box, db_recs)
+        else:
             # Animated empty state
             empty_box = MDBoxLayout(
                 orientation="vertical", spacing=dp(12),
-                size_hint_y=None, height=dp(200),
+                size_hint_y=None, height=dp(240),
                 padding=(dp(20), dp(40), dp(20), dp(20)),
             )
-            icon_lbl = MDLabel(
-                text="●", halign="center", font_style="H2",
+            icon_lbl = MDIcon(
+                icon="lightbulb-on-outline",
+                halign="center", font_size="48sp",
+                theme_text_color="Custom",
+                text_color=(0.75, 0.85, 0.75, 1),
                 size_hint_y=None, height=dp(60),
             )
+            title_lbl = MDLabel(
+                text="No recommendations yet",
+                halign="center", bold=True, font_style="Subtitle1",
+                theme_text_color="Custom",
+                text_color=(0.35, 0.35, 0.35, 1),
+                size_hint_y=None, height=dp(28),
+            )
             msg_lbl = MDLabel(
-                text="No recommendations yet.\nCheck back after your crops are updated.",
+                text="AI is analysing your crops and market data.\nCheck back shortly for personalised advice.",
                 halign="center", theme_text_color="Custom",
-                text_color=(0.5, 0.5, 0.5, 1),
+                text_color=(0.55, 0.55, 0.55, 1),
                 size_hint_y=None, height=dp(60),
             )
             empty_box.add_widget(icon_lbl)
+            empty_box.add_widget(title_lbl)
             empty_box.add_widget(msg_lbl)
             box.add_widget(empty_box)
             fade_in(empty_box, duration=0.4)
             center_scroll_content(box.parent, box)
             return
 
-        cards = []
-        for idx, r in enumerate(recs):
-            accent_colors = [
-                (0.22, 0.60, 0.28, 1),
-                (0.12, 0.38, 0.72, 1),
-                (0.78, 0.50, 0.10, 1),
-            ]
-            accent = accent_colors[idx % len(accent_colors)]
+    def _get_ml_recommendations(self):
+        """Generate ML recommendations from cached predictions (if available)."""
+        if not self._ml_predictions_cache:
+            return []
+        try:
+            from utils.recommendation_engine import generate_recommendations
+            region_id = self.user.get("region_id")
+            current_prices = get_latest_prices_for_crops(region_id)
+            return generate_recommendations(self._ml_predictions_cache, current_prices)
+        except Exception as e:
+            print(f"[ML] Rec generation error: {e}")
+            return []
 
+    def _render_ml_recommendations(self, box, recs):
+        """Render AI-powered recommendation cards with severity styling."""
+        from kivymd.uix.card import MDCard
+        from kivymd.uix.label import MDLabel, MDIcon
+        from kivymd.uix.boxlayout import MDBoxLayout
+        from kivy.graphics import Color, RoundedRectangle
+
+        # Section header with AI badge
+        header_row = MDBoxLayout(
+            orientation="horizontal",
+            size_hint_y=None, height=dp(36),
+            spacing=dp(8),
+            padding=(0, dp(4), 0, dp(8)),
+        )
+        ai_badge = MDCard(
+            size_hint=(None, None), size=(dp(28), dp(22)),
+            radius=[6, 6, 6, 6],
+            md_bg_color=(0.12, 0.60, 0.35, 1),
+            elevation=0,
+        )
+        ai_lbl = MDLabel(
+            text="AI", halign="center", bold=True,
+            font_style="Caption",
+            theme_text_color="Custom", text_color=(1, 1, 1, 1),
+        )
+        ai_badge.add_widget(ai_lbl)
+        header_title = MDLabel(
+            text="Smart Recommendations",
+            bold=True, font_style="H6",
+            theme_text_color="Custom",
+            text_color=(0.08, 0.08, 0.08, 1),
+        )
+        header_row.add_widget(ai_badge)
+        header_row.add_widget(header_title)
+        box.add_widget(header_row)
+
+        SEVERITY_COLORS = {
+            "critical": {"accent": (0.85, 0.18, 0.18, 1), "bg": (1, 0.95, 0.95, 1), "icon_clr": (0.85, 0.18, 0.18, 1)},
+            "warning":  {"accent": (0.90, 0.60, 0.10, 1), "bg": (1, 0.98, 0.92, 1), "icon_clr": (0.85, 0.55, 0.08, 1)},
+            "positive": {"accent": (0.15, 0.65, 0.30, 1), "bg": (0.93, 0.99, 0.93, 1), "icon_clr": (0.12, 0.58, 0.26, 1)},
+            "info":     {"accent": (0.22, 0.50, 0.78, 1), "bg": (0.94, 0.97, 1, 1), "icon_clr": (0.20, 0.45, 0.72, 1)},
+        }
+
+        cards = []
+        for rec in recs:
+            sev = rec.get("severity", "info")
+            colors = SEVERITY_COLORS.get(sev, SEVERITY_COLORS["info"])
+
+            card = MDCard(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(90),
+                padding=(dp(12), dp(10), dp(12), dp(10)),
+                spacing=dp(10),
+                radius=[14, 14, 14, 14],
+                md_bg_color=colors["bg"],
+                elevation=1,
+                ripple_behavior=True,
+            )
+
+            # Left accent bar
+            with card.canvas.before:
+                Color(*colors["accent"])
+                card._acc = RoundedRectangle(
+                    pos=card.pos,
+                    size=(dp(4), card.height),
+                    radius=[2, 2, 2, 2],
+                )
+            def _upd_accent(inst, *_, acc=card._acc):
+                acc.pos = inst.pos
+                acc.size = (dp(4), inst.height)
+            card.bind(pos=_upd_accent, size=_upd_accent)
+
+            # Icon
+            icon_card = MDCard(
+                size_hint=(None, None), size=(dp(40), dp(40)),
+                radius=[20, 20, 20, 20],
+                md_bg_color=(*colors["accent"][:3], 0.15),
+                elevation=0,
+                pos_hint={"center_y": 0.5},
+            )
+            icon_widget = MDIcon(
+                icon=rec.get("icon", "lightbulb-on"),
+                halign="center",
+                font_size="20sp",
+                theme_text_color="Custom",
+                text_color=colors["icon_clr"],
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+            )
+            icon_card.add_widget(icon_widget)
+
+            # Text content
+            text_box = MDBoxLayout(
+                orientation="vertical",
+                spacing=dp(2),
+                pos_hint={"center_y": 0.5},
+            )
+            title_lbl = MDLabel(
+                text=rec.get("title", "Recommendation"),
+                bold=True, font_style="Subtitle2",
+                theme_text_color="Custom",
+                text_color=(0.08, 0.08, 0.08, 1),
+                size_hint_y=None, height=dp(20),
+            )
+            # Type badge
+            rec_type = rec.get("type", "info").upper()
+            type_lbl = MDLabel(
+                text=f"{rec_type}  •  {rec.get('vegetable', 'General') or 'General'}",
+                font_style="Caption", bold=True,
+                theme_text_color="Custom",
+                text_color=colors["icon_clr"],
+                size_hint_y=None, height=dp(14),
+            )
+            msg_lbl = MDLabel(
+                text=rec.get("message", ""),
+                font_style="Caption",
+                theme_text_color="Custom",
+                text_color=(0.30, 0.30, 0.30, 1),
+                size_hint_y=None, height=dp(36),
+            )
+            text_box.add_widget(title_lbl)
+            text_box.add_widget(type_lbl)
+            text_box.add_widget(msg_lbl)
+
+            card.add_widget(icon_card)
+            card.add_widget(text_box)
+
+            # Accordion expand on tap
+            card._collapsed = True
+            card._msg_lbl = msg_lbl
+            card.bind(on_release=lambda inst: self._toggle_rec_card(inst))
+
+            box.add_widget(card)
+            cards.append(card)
+
+        stagger_fade_in(cards, step=0.06, duration=0.30)
+        center_scroll_content(box.parent, box)
+
+    def _render_db_recommendations(self, box, recs):
+        """Fallback: render DB-stored recommendations (legacy style)."""
+        from kivymd.uix.card import MDCard
+        from kivymd.uix.label import MDLabel
+        from kivy.graphics import Color, Rectangle
+
+        cards = []
+        accent_colors = [
+            (0.22, 0.60, 0.28, 1),
+            (0.12, 0.38, 0.72, 1),
+            (0.78, 0.50, 0.10, 1),
+        ]
+        for idx, r in enumerate(recs):
+            accent = accent_colors[idx % len(accent_colors)]
             card = MDCard(
                 orientation="vertical", size_hint_y=None, height=dp(68),
                 padding=(dp(16), dp(10), dp(16), dp(10)), spacing=dp(2),
@@ -1637,13 +1892,9 @@ class DashboardScreen(Screen):
                 md_bg_color=(1, 1, 1, 1), elevation=1,
                 ripple_behavior=True,
             )
-
-            # left accent bar
-            from kivy.graphics import Color, Rectangle
             with card.canvas.before:
                 Color(*accent)
                 card._acc = Rectangle(pos=card.pos, size=(dp(4), card.height))
-
             def _upd(inst, *_):
                 inst._acc.pos = inst.pos
                 inst._acc.size = (dp(4), inst.height)
@@ -1661,12 +1912,9 @@ class DashboardScreen(Screen):
             )
             card.add_widget(msg_lbl)
             card.add_widget(date_lbl)
-
-            # Accordion expand on tap
             card._collapsed = True
             card._msg_lbl = msg_lbl
             card.bind(on_release=lambda inst: self._toggle_rec_card(inst))
-
             box.add_widget(card)
             cards.append(card)
 
@@ -1675,10 +1923,10 @@ class DashboardScreen(Screen):
 
     def _toggle_rec_card(self, card):
         if card._collapsed:
-            Animation(height=dp(110), duration=0.22, t="out_quad").start(card)
+            Animation(height=dp(130), duration=0.22, t="out_quad").start(card)
             card._collapsed = False
         else:
-            Animation(height=dp(68), duration=0.18, t="in_quad").start(card)
+            Animation(height=dp(90), duration=0.18, t="in_quad").start(card)
             card._collapsed = True
         bounce_scale(card)
 
@@ -1687,7 +1935,8 @@ class DashboardScreen(Screen):
     # ══════════════════════════════════════════════════════════════════════
     def load_alerts(self):
         from kivymd.uix.card import MDCard
-        from kivymd.uix.label import MDLabel
+        from kivymd.uix.label import MDLabel, MDIcon
+        from kivymd.uix.boxlayout import MDBoxLayout
         from kivymd.uix.button import MDIconButton
 
         box = self.ids.alert_box
@@ -1695,43 +1944,128 @@ class DashboardScreen(Screen):
         alerts = get_alerts_for_user(self.user["user_id"])
 
         if not alerts:
-            empty = MDLabel(
-                text="●  All caught up! No alerts right now.",
-                halign="center", theme_text_color="Custom",
-                text_color=(0.45, 0.45, 0.45, 1),
-                size_hint_y=None, height=dp(60),
+            # Empty state with icon
+            empty_box = MDBoxLayout(
+                orientation="vertical", spacing=dp(8),
+                size_hint_y=None, height=dp(180),
+                padding=(dp(20), dp(40), dp(20), dp(20)),
             )
-            box.add_widget(empty)
-            fade_in(empty, duration=0.35)
+            empty_icon = MDIcon(
+                icon="bell-check-outline",
+                halign="center", font_size="44sp",
+                theme_text_color="Custom",
+                text_color=(0.70, 0.82, 0.70, 1),
+                size_hint_y=None, height=dp(52),
+            )
+            empty_title = MDLabel(
+                text="All clear!",
+                halign="center", bold=True, font_style="Subtitle1",
+                theme_text_color="Custom",
+                text_color=(0.35, 0.35, 0.35, 1),
+                size_hint_y=None, height=dp(24),
+            )
+            empty_msg = MDLabel(
+                text="No alerts right now. AI is monitoring your\ncrops, weather and market conditions.",
+                halign="center", theme_text_color="Custom",
+                text_color=(0.55, 0.55, 0.55, 1),
+                size_hint_y=None, height=dp(44),
+            )
+            empty_box.add_widget(empty_icon)
+            empty_box.add_widget(empty_title)
+            empty_box.add_widget(empty_msg)
+            box.add_widget(empty_box)
+            fade_in(empty_box, duration=0.35)
             center_scroll_content(box.parent, box)
             return
+
+        # Alert type → severity styling
+        ALERT_STYLES = {
+            "price_spike":        {"severity": "high",   "icon": "arrow-up-bold-circle",  "bg": (1, 0.93, 0.93, 1),  "icon_clr": (0.85, 0.18, 0.18, 1), "badge_bg": (0.85, 0.18, 0.18, 1)},
+            "price_drop":         {"severity": "medium", "icon": "arrow-down-bold-circle","bg": (1, 0.97, 0.90, 1),  "icon_clr": (0.85, 0.55, 0.08, 1), "badge_bg": (0.90, 0.60, 0.10, 1)},
+            "heavy_rain":         {"severity": "high",   "icon": "weather-pouring",       "bg": (0.92, 0.95, 1, 1),  "icon_clr": (0.15, 0.40, 0.80, 1), "badge_bg": (0.20, 0.45, 0.82, 1)},
+            "drought_risk":       {"severity": "medium", "icon": "weather-sunny-alert",   "bg": (1, 0.97, 0.90, 1),  "icon_clr": (0.85, 0.55, 0.08, 1), "badge_bg": (0.90, 0.60, 0.10, 1)},
+            "production_surplus":  {"severity": "medium", "icon": "package-variant-plus", "bg": (0.95, 0.97, 1, 1),  "icon_clr": (0.30, 0.45, 0.70, 1), "badge_bg": (0.35, 0.50, 0.75, 1)},
+            "production_shortage": {"severity": "high",   "icon": "package-variant-minus","bg": (1, 0.93, 0.93, 1),  "icon_clr": (0.85, 0.18, 0.18, 1), "badge_bg": (0.85, 0.18, 0.18, 1)},
+        }
+        DEFAULT_STYLE = {"severity": "medium", "icon": "alert-circle", "bg": (0.97, 0.97, 0.97, 1), "icon_clr": (0.65, 0.65, 0.65, 1), "badge_bg": (0.65, 0.65, 0.65, 1)}
 
         cards = []
         for a in alerts:
             is_unread = not a["is_read"]
-            bg = (0.92, 0.98, 0.92, 1) if is_unread else (0.97, 0.97, 0.97, 1)
+            style = ALERT_STYLES.get(a.get("type", ""), DEFAULT_STYLE)
+            bg = style["bg"] if is_unread else (0.97, 0.97, 0.97, 1)
 
             card = MDCard(
-                orientation="horizontal", size_hint_y=None, height=dp(72),
-                padding=(dp(12), dp(10), dp(8), dp(10)), spacing=dp(8),
+                orientation="horizontal", size_hint_y=None, height=dp(82),
+                padding=(dp(12), dp(10), dp(8), dp(10)), spacing=dp(10),
                 radius=[14, 14, 14, 14],
                 md_bg_color=bg,
                 elevation=2 if is_unread else 0,
             )
 
-            icon_name = "alert-circle" if is_unread else "check-circle-outline"
-            icon_clr = (0.90, 0.50, 0.10, 1) if is_unread else (0.65, 0.65, 0.65, 1)
-            icon = MDIconButton(
-                icon=icon_name,
-                theme_text_color="Custom", text_color=icon_clr,
-                disabled=True, size_hint_x=None, width=dp(36),
+            # Icon circle
+            icon_circle = MDCard(
+                size_hint=(None, None), size=(dp(40), dp(40)),
+                radius=[20, 20, 20, 20],
+                md_bg_color=(*style["icon_clr"][:3], 0.15),
+                elevation=0,
+                pos_hint={"center_y": 0.5},
             )
+            icon_widget = MDIcon(
+                icon=style["icon"] if is_unread else "check-circle-outline",
+                halign="center", font_size="20sp",
+                theme_text_color="Custom",
+                text_color=style["icon_clr"] if is_unread else (0.65, 0.65, 0.65, 1),
+                pos_hint={"center_x": 0.5, "center_y": 0.5},
+            )
+            icon_circle.add_widget(icon_widget)
+
+            # Content
+            content_box = MDBoxLayout(
+                orientation="vertical",
+                spacing=dp(2),
+                pos_hint={"center_y": 0.5},
+            )
+
+            # Severity badge
+            sev_text = style["severity"].upper()
+            sev_row = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None, height=dp(18),
+                spacing=dp(6),
+            )
+            sev_badge = MDCard(
+                size_hint=(None, None), size=(dp(50), dp(16)),
+                radius=[4, 4, 4, 4],
+                md_bg_color=style["badge_bg"] if is_unread else (0.75, 0.75, 0.75, 1),
+                elevation=0,
+            )
+            sev_lbl = MDLabel(
+                text=sev_text, halign="center",
+                bold=True, font_style="Caption",
+                theme_text_color="Custom", text_color=(1, 1, 1, 1),
+            )
+            sev_badge.add_widget(sev_lbl)
+            alert_type_lbl = MDLabel(
+                text=a.get("type", "alert").replace("_", " ").title(),
+                font_style="Caption", bold=True,
+                theme_text_color="Custom",
+                text_color=style["icon_clr"] if is_unread else (0.55, 0.55, 0.55, 1),
+            )
+            sev_row.add_widget(sev_badge)
+            sev_row.add_widget(alert_type_lbl)
+
             msg_lbl = MDLabel(
                 text=a["message"], theme_text_color="Custom",
                 text_color=(0.10, 0.10, 0.10, 1) if is_unread else (0.50, 0.50, 0.50, 1),
+                font_style="Caption",
             )
-            card.add_widget(icon)
-            card.add_widget(msg_lbl)
+
+            content_box.add_widget(sev_row)
+            content_box.add_widget(msg_lbl)
+
+            card.add_widget(icon_circle)
+            card.add_widget(content_box)
 
             if is_unread:
                 dismiss_btn = MDIconButton(
@@ -1743,10 +2077,9 @@ class DashboardScreen(Screen):
                 card.add_widget(dismiss_btn)
                 # pulse unread card
                 Clock.schedule_once(
-                    lambda dt, c=card, bg=bg: pulse_color(
-                        c,
-                        bg,
-                        (0.82, 0.96, 0.82, 1),
+                    lambda dt, c=card, bg_clr=bg: pulse_color(
+                        c, bg_clr,
+                        (*style["icon_clr"][:3], 0.12),
                         duration=1.2,
                     ), 0.5
                 )
