@@ -505,10 +505,15 @@ The database structure consists of key normalized tables:
 
 ## 👤 Author & License
 
-- **Developer / Maintainer**: [Kushan Laksitha](https://github.com/KushanLaksitha)
-- **Repository**: [AgriSense2.1](https://github.com/KushanLaksitha/AgriSense2.1)
+- **Developers / Maintainers**: [Kushan Laksitha](https://github.com/KushanLaksitha)
+                                [Tharusha Dilantha](https://github.com/tharush4d)
+                                [Dinuri Gayara](https://github.com/DGayara)
+                                [Ashan Oshadha](https://github.com/ashanoshada)
+                                [Thilini Samaranayaka](https://github.com/thilinisamaranayaka)
+                                
+- **Repository**: [Demo](https://github.com/KushanLaksitha/demo)
 - **License**: Distributed under the MIT License. See `LICENSE` for details.
 
 ---
 
-*Made with ❤️ for Sri Lankan Agriculture.*
+*Made with Team VectaMind for Sri Lankan Agriculture.*
