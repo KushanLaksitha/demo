@@ -41,7 +41,7 @@ def create_db_engine():
     Initializes SQLAlchemy engine for MySQL.
     1. Tries connecting to MySQL with the specified database.
     2. If the database does not exist, attempts to create it on MySQL.
-    3. If MySQL connection fails, raises an error without falling back to SQLite.
+    3. If MySQL connection fails, raises an error.
     """
     mysql_url = (
         f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
