@@ -1,6 +1,6 @@
 """
 Central database connection point for AgriSense.
-Supports MySQL (default) with automatic database creation and graceful SQLite fallback.
+Strictly uses MySQL with automatic database creation.
 Reads credentials from a local .env file.
 """
 import os
@@ -32,18 +32,16 @@ def run_schema_migrations(engine):
                     pass
                 conn.execute(text("ALTER TABLE user MODIFY COLUMN user_type ENUM('farmer', 'trader', 'policymaker', 'admin') NOT NULL"))
             print("[DB Migration] MySQL user_type column updated to ENUM('farmer', 'trader', 'policymaker', 'admin').")
-        elif dial_name == "sqlite":
-            pass
     except Exception as e:
         print(f"[DB Migration] Schema migration check: {e}")
 
 
 def create_db_engine():
     """
-    Initializes SQLAlchemy engine.
+    Initializes SQLAlchemy engine for MySQL.
     1. Tries connecting to MySQL with the specified database.
     2. If the database does not exist, attempts to create it on MySQL.
-    3. If MySQL is unreachable, falls back gracefully to a local SQLite database.
+    3. If MySQL connection fails, raises an error without falling back to SQLite.
     """
     mysql_url = (
         f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -70,13 +68,8 @@ def create_db_engine():
             run_schema_migrations(eng)
             return eng
         except Exception as err2:
-            print(f"[DB] MySQL server unreachable ({e}). Falling back to SQLite ('agrisense.db').")
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            db_path = os.path.join(project_root, "agrisense.db")
-            sqlite_url = f"sqlite:///{db_path}"
-            eng = create_engine(sqlite_url, echo=False)
-            run_schema_migrations(eng)
-            return eng
+            print(f"[DB] ERROR: MySQL server unreachable: {err2} (initial error: {e})")
+            raise RuntimeError(f"Failed to connect to MySQL database: {err2}") from err2
 
 
 engine = create_db_engine()
