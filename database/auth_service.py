@@ -138,3 +138,16 @@ def login_user(email, password):
         return False, "Can't reach the database right now. Please make sure MySQL is running and try again."
     finally:
         db.close()
+
+
+def validate_admin_session(user_id):
+    """Returns whether a cached session still belongs to an active admin."""
+    db = get_session()
+    try:
+        user = db.query(User).filter_by(user_id=user_id).first()
+        return bool(user and user.is_active and user.user_type == "admin")
+    except Exception as e:
+        print(f"[Auth] validate_admin_session failed: {e}")
+        return False
+    finally:
+        db.close()

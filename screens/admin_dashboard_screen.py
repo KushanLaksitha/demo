@@ -21,7 +21,7 @@ from database.data_service import (
     get_all_users_for_admin, toggle_user_status_by_admin, update_user_role_by_admin,
     delete_user_by_admin, get_all_regions
 )
-from database.auth_service import admin_create_user, ALL_ROLES
+from database.auth_service import admin_create_user, ALL_ROLES, validate_admin_session
 from utils.validators import is_valid_email_format, is_password_acceptable
 from utils.animations import stagger_fade_in, fade_in, bounce_scale
 
@@ -302,7 +302,8 @@ class AdminDashboardScreen(Screen):
     def on_pre_enter(self, *args):
         from kivymd.app import MDApp
         app = MDApp.get_running_app()
-        if not app.current_user or app.current_user.get("user_type") != "admin":
+        if not app.current_user or not validate_admin_session(app.current_user.get("user_id")):
+            app.current_user = None
             if self.manager:
                 self.manager.transition.direction = "right"
                 self.manager.current = "login"
@@ -519,17 +520,28 @@ class AdminDashboardScreen(Screen):
 
     # ── USER MANAGEMENT ACTIONS ───────────────────────────────────────────────
     def toggle_user_status(self, user_id):
+        if self._is_current_user(user_id):
+            show_snackbar("You cannot suspend your own admin account.")
+            return
         success, msg = toggle_user_status_by_admin(user_id)
         show_snackbar(msg)
         if success:
             self.load_users()
 
+    def _is_current_user(self, user_id):
+        from kivymd.app import MDApp
+        app = MDApp.get_running_app()
+        return app.current_user and app.current_user.get("user_id") == user_id
+
     def open_role_change_menu(self, caller, user_id, current_role):
+        if self._is_current_user(user_id):
+            show_snackbar("You cannot change your own admin role.")
+            return
         items = [
             {
                 "text": f"{'✓ ' if r == current_role else ''}{r.capitalize()}",
                 "viewclass": "OneLineListItem",
-                "on_release": lambda r=r: self.change_user_role(user_id, r),
+                "on_release": lambda *_, r=r: self.change_user_role(user_id, r),
             }
             for r in ALL_ROLES
         ]
@@ -545,6 +557,9 @@ class AdminDashboardScreen(Screen):
             self.load_users()
 
     def confirm_delete_user(self, user_id, email):
+        if self._is_current_user(user_id):
+            show_snackbar("You cannot delete your own admin account.")
+            return
         self.dialog = MDDialog(
             title="Delete User Account",
             text=f"Are you sure you want to permanently delete the user account '{email}'? This action cannot be undone.",
@@ -583,8 +598,8 @@ class AdminDashboardScreen(Screen):
     def open_create_form(self):
         self.create_form_open = True
         card = self.ids.create_user_card
-        card.height = dp(270)
         card.opacity = 1
+        card.height = max(dp(290), card.minimum_height)
         bounce_scale(card)
         self.regions = get_all_regions()
 
@@ -594,13 +609,17 @@ class AdminDashboardScreen(Screen):
         card.height = 0
         card.opacity = 0
         self.ids.create_user_error.text = ""
+        self.new_user_role = "policymaker"
+        self.new_user_region_id = None
+        self.ids.new_role_btn.text = "Role: Policymaker ▾"
+        self.ids.new_region_btn.text = "Select District ▾"
 
     def open_create_role_menu(self):
         items = [
             {
                 "text": r.capitalize(),
                 "viewclass": "OneLineListItem",
-                "on_release": lambda r=r: self.pick_create_role(r),
+                "on_release": lambda *_, r=r: self.pick_create_role(r),
             }
             for r in ALL_ROLES
         ]
@@ -620,7 +639,7 @@ class AdminDashboardScreen(Screen):
             {
                 "text": district,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda rid=rid, d=district: self.pick_create_region(rid, d),
+                "on_release": lambda *_, rid=rid, d=district: self.pick_create_region(rid, d),
             }
             for rid, name, district in self.regions
         ]
