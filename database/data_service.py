@@ -281,6 +281,12 @@ def get_all_users_for_admin(role_filter=None, search_query=None):
         db.close()
 
 
+def _is_last_active_admin(db, user):
+    return user.user_type == "admin" and user.is_active and db.query(User).filter(
+        User.user_type == "admin", User.is_active.is_(True)
+    ).count() <= 1
+
+
 @db_safe(default=lambda: (False, "Database error"))
 def toggle_user_status_by_admin(user_id):
     """Toggles active/suspended status of a user."""
@@ -289,6 +295,8 @@ def toggle_user_status_by_admin(user_id):
         user = db.query(User).filter_by(user_id=user_id).first()
         if not user:
             return False, "User not found."
+        if _is_last_active_admin(db, user):
+            return False, "The last active admin account cannot be suspended."
         user.is_active = not user.is_active
         db.commit()
         status_text = "activated" if user.is_active else "suspended"
@@ -311,6 +319,8 @@ def update_user_role_by_admin(user_id, new_role):
         user = db.query(User).filter_by(user_id=user_id).first()
         if not user:
             return False, "User not found."
+        if new_role != "admin" and _is_last_active_admin(db, user):
+            return False, "The last active admin account must remain an admin."
         user.user_type = new_role
         db.commit()
         return True, f"Role for {user.email} updated to {new_role.capitalize()}."
@@ -329,6 +339,8 @@ def delete_user_by_admin(user_id):
         user = db.query(User).filter_by(user_id=user_id).first()
         if not user:
             return False, "User not found."
+        if _is_last_active_admin(db, user):
+            return False, "The last active admin account cannot be deleted."
         email = user.email
         # Cleanup dependent records first
         db.query(UserPreferences).filter_by(user_id=user_id).delete()
