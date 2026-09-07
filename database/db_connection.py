@@ -13,7 +13,7 @@ load_dotenv()
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "3306")
 DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "root")
 DB_NAME = os.getenv("DB_NAME", "vectamind_db")
 
 
@@ -68,13 +68,9 @@ def create_db_engine():
             run_schema_migrations(eng)
             return eng
         except Exception as err2:
-            print(f"[DB] MySQL connection failed ({err2}). Falling back to local SQLite database.")
-            sqlite_url = f"sqlite:///{DB_NAME}.db"
-            eng = create_engine(sqlite_url, echo=False)
-            with eng.connect() as conn:
-                conn.exec_driver_sql("SELECT 1")
-            print(f"[DB] Connected to local SQLite database '{DB_NAME}.db'.")
-            return eng
+            print(f"[DB] ERROR: MySQL server unreachable: {err2} (initial error: {e})")
+            raise RuntimeError(f"Failed to connect to MySQL database: {err2}") from err2
+
 
 
 
