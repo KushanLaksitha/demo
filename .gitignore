@@ -69,6 +69,8 @@ bin/
 .DS_Store
 Thumbs.db
 agrisense.db
+*.db
 scratch/
+
 
 
