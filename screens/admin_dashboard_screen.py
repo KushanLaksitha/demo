@@ -323,7 +323,8 @@ class AdminDashboardScreen(Screen):
 
             self.ids.users_tab_content.size_hint_y = 1
             self.ids.users_tab_content.opacity = 1
-            self.ids.feedback_tab_content.size_hint_y = None
+            self.ids.users_tab_content.height = self.ids.users_tab_content.minimum_height
+            self.ids.feedback_tab_content.size_hint_y = 0
             self.ids.feedback_tab_content.height = 0
             self.ids.feedback_tab_content.opacity = 0
             self.load_users()
@@ -333,10 +334,11 @@ class AdminDashboardScreen(Screen):
             self.ids.tab_users_btn.md_bg_color = (0.9, 0.94, 0.9, 1)
             self.ids.tab_users_btn.text_color = (0.2, 0.4, 0.2, 1)
 
-            self.ids.users_tab_content.size_hint_y = None
+            self.ids.users_tab_content.size_hint_y = 0
             self.ids.users_tab_content.height = 0
             self.ids.users_tab_content.opacity = 0
             self.ids.feedback_tab_content.size_hint_y = 1
+            self.ids.feedback_tab_content.height = self.ids.feedback_tab_content.minimum_height
             self.ids.feedback_tab_content.opacity = 1
             self.load_feedback()
 

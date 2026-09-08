@@ -30,7 +30,10 @@ import os
 import math
 import threading
 import joblib
+import warnings
 from datetime import datetime
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 import numpy as np
 
@@ -66,20 +69,22 @@ _models_loaded  = False
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _load_keras_model(path):
-    """Load a .keras model file using the best available backend."""
+    """Load a .keras model file using TensorFlow Keras if available.
+    Falls back to the standalone ``keras`` package.
+    Returns the loaded model or ``None`` on failure without noisy logs.
+    """
     try:
-        # Try standalone keras (3.x) first
-        import keras
-        return keras.models.load_model(path)
-    except Exception:
-        pass
-    try:
-        # Fall back to tensorflow.keras (2.x)
         import tensorflow as tf
         return tf.keras.models.load_model(path)
     except Exception:
+        # TensorFlow not available or load failed
         pass
-    return None
+    try:
+        import keras
+        return keras.models.load_model(path)
+    except Exception:
+        # Both backends unavailable
+        return None
 
 
 def _ensure_loaded():
@@ -105,7 +110,8 @@ def _ensure_loaded():
                     _lstm_models[key] = model
                     loaded_count += 1
                 else:
-                    print(f"[ML] LSTM model for {veg} failed to load (no backend available).")
+                    # LSTM model not loaded due to missing backend
+                    pass
             except Exception as e:
                 print(f"[ML] LSTM model load error for {veg}: {e}")
 
