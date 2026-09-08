@@ -1828,8 +1828,11 @@ class DashboardScreen(Screen):
             text_box = MDBoxLayout(
                 orientation="vertical",
                 spacing=dp(2),
+                size_hint_y=None,
                 pos_hint={"center_y": 0.5},
             )
+            text_box.bind(minimum_height=text_box.setter("height"))
+
             title_lbl = MDLabel(
                 text=rec.get("title", "Recommendation"),
                 bold=True, font_style="Subtitle2",
@@ -1851,11 +1854,19 @@ class DashboardScreen(Screen):
                 font_style="Caption",
                 theme_text_color="Custom",
                 text_color=(0.30, 0.30, 0.30, 1),
-                size_hint_y=None, height=dp(36),
+                size_hint_y=None,
             )
+            msg_lbl.bind(texture_size=lambda inst, val: setattr(inst, "height", val[1]))
+
             text_box.add_widget(title_lbl)
             text_box.add_widget(type_lbl)
             text_box.add_widget(msg_lbl)
+
+            def _update_ml_card_height(c_inst, *args, t_inst=text_box):
+                c_inst.height = max(dp(86), t_inst.height + dp(24))
+
+            text_box.bind(height=lambda *args, c=card: _update_ml_card_height(c))
+            _update_ml_card_height(card)
 
             card.add_widget(icon_card)
             card.add_widget(text_box)
@@ -1872,7 +1883,7 @@ class DashboardScreen(Screen):
         center_scroll_content(box.parent, box)
 
     def _render_db_recommendations(self, box, recs):
-        """Fallback: render DB-stored recommendations (legacy style)."""
+        """Fallback: render DB-stored recommendations."""
         from kivymd.uix.card import MDCard
         from kivymd.uix.label import MDLabel
         from kivy.graphics import Color, Rectangle
@@ -1886,32 +1897,55 @@ class DashboardScreen(Screen):
         for idx, r in enumerate(recs):
             accent = accent_colors[idx % len(accent_colors)]
             card = MDCard(
-                orientation="vertical", size_hint_y=None, height=dp(68),
-                padding=(dp(16), dp(10), dp(16), dp(10)), spacing=dp(2),
+                orientation="vertical",
+                size_hint_y=None,
+                padding=(dp(16), dp(12), dp(16), dp(12)),
+                spacing=dp(6),
                 radius=[14, 14, 14, 14],
-                md_bg_color=(1, 1, 1, 1), elevation=1,
+                md_bg_color=(1, 1, 1, 1),
+                elevation=1,
                 ripple_behavior=True,
             )
             with card.canvas.before:
                 Color(*accent)
                 card._acc = Rectangle(pos=card.pos, size=(dp(4), card.height))
-            def _upd(inst, *_):
-                inst._acc.pos = inst.pos
-                inst._acc.size = (dp(4), inst.height)
+            def _upd(inst, *_, acc=card._acc):
+                acc.pos = inst.pos
+                acc.size = (dp(4), inst.height)
             card.bind(pos=_upd, size=_upd)
 
             msg_lbl = MDLabel(
-                text=r["message"], theme_text_color="Custom",
+                text=r["message"],
+                theme_text_color="Custom",
                 text_color=(0.10, 0.10, 0.10, 1),
+                font_style="Body2",
+                size_hint_y=None,
             )
+            msg_lbl.bind(texture_size=lambda inst, val: setattr(inst, "height", val[1]))
+
+            created_at = r.get("created_at")
+            if hasattr(created_at, "strftime"):
+                date_str = created_at.strftime("%d %b %Y")
+            else:
+                date_str = str(created_at) if created_at else ""
+
             date_lbl = MDLabel(
-                text=r["created_at"].strftime("%d %b %Y"),
-                font_style="Caption", theme_text_color="Custom",
+                text=date_str,
+                font_style="Caption",
+                theme_text_color="Custom",
                 text_color=(0.55, 0.55, 0.55, 1),
-                size_hint_y=None, height=dp(16),
+                size_hint_y=None,
+                height=dp(16),
             )
             card.add_widget(msg_lbl)
             card.add_widget(date_lbl)
+
+            def _update_card_height(c_inst, *args, m_inst=msg_lbl):
+                c_inst.height = m_inst.height + dp(16) + dp(6) + dp(24)
+
+            msg_lbl.bind(height=lambda *args, c=card: _update_card_height(c))
+            _update_card_height(card)
+
             card._collapsed = True
             card._msg_lbl = msg_lbl
             card.bind(on_release=lambda inst: self._toggle_rec_card(inst))
@@ -2024,8 +2058,10 @@ class DashboardScreen(Screen):
             content_box = MDBoxLayout(
                 orientation="vertical",
                 spacing=dp(2),
+                size_hint_y=None,
                 pos_hint={"center_y": 0.5},
             )
+            content_box.bind(minimum_height=content_box.setter("height"))
 
             # Severity badge
             sev_text = style["severity"].upper()
@@ -2059,10 +2095,18 @@ class DashboardScreen(Screen):
                 text=a["message"], theme_text_color="Custom",
                 text_color=(0.10, 0.10, 0.10, 1) if is_unread else (0.50, 0.50, 0.50, 1),
                 font_style="Caption",
+                size_hint_y=None,
             )
+            msg_lbl.bind(texture_size=lambda inst, val: setattr(inst, "height", val[1]))
 
             content_box.add_widget(sev_row)
             content_box.add_widget(msg_lbl)
+
+            def _update_alert_card_height(c_inst, *args, c_box=content_box):
+                c_inst.height = max(dp(82), c_box.height + dp(20))
+
+            content_box.bind(height=lambda *args, c=card: _update_alert_card_height(c))
+            _update_alert_card_height(card)
 
             card.add_widget(icon_circle)
             card.add_widget(content_box)

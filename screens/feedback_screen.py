@@ -248,11 +248,11 @@ KV = """
 Builder.load_string(KV)
 
 EMOJI_RATINGS = [
-    (1, "😡", "Disappointed"),
-    (2, "🙁", "Needs Work"),
-    (3, "😐", "Okay"),
-    (4, "🙂", "Good"),
-    (5, "😍", "Loved it!"),
+    (1, "emoticon-sad-outline", "Disappointed"),
+    (2, "emoticon-neutral-outline", "Needs Work"),
+    (3, "emoticon-happy-outline", "Okay"),
+    (4, "emoticon-smile-outline", "Good"),
+    (5, "emoticon-heart-outline", "Loved it!"),
 ]
 
 STAR_LABELS = {1: "Poor", 2: "Fair", 3: "Good", 4: "Very good", 5: "Loved it!"}
@@ -313,16 +313,12 @@ class FeedbackScreen(Screen):
         row = self.ids.emoji_row
         row.clear_widgets()
         self.emoji_btn_map = {}
-        for rating_val, emoji, desc in EMOJI_RATINGS:
-            btn = MDRaisedButton(
-                text=emoji,
-                size_hint=(None, None),
-                size=(dp(54), dp(40)),
-                _radius=10,
-                elevation=0,
-                font_size="20sp",
-                md_bg_color=(0.93, 0.95, 0.93, 1),
-                text_color=(0.2, 0.2, 0.2, 1),
+        for rating_val, icon_name, desc in EMOJI_RATINGS:
+            btn = MDIconButton(
+                icon=icon_name,
+                user_font_size="26sp",
+                theme_text_color="Custom",
+                text_color=(0.5, 0.5, 0.5, 1),
                 on_release=lambda x, val=rating_val: self.set_rating(val),
             )
             self.emoji_btn_map[rating_val] = btn
@@ -389,12 +385,12 @@ class FeedbackScreen(Screen):
         # Update emoji highlights
         for val, btn in self.emoji_btn_map.items():
             if val == n:
-                btn.md_bg_color = (0.25, 0.62, 0.30, 1)
-                btn.text_color = (1, 1, 1, 1)
+                btn.text_color = (0.25, 0.62, 0.30, 1)
+                btn.user_font_size = "32sp"
                 bounce_scale(btn)
             else:
-                btn.md_bg_color = (0.93, 0.95, 0.93, 1)
-                btn.text_color = (0.2, 0.2, 0.2, 1)
+                btn.text_color = (0.5, 0.5, 0.5, 1)
+                btn.user_font_size = "26sp"
 
         # Update stars
         for i, star in enumerate(self.star_buttons, start=1):
@@ -406,9 +402,8 @@ class FeedbackScreen(Screen):
                 star.text_color = (0.8, 0.8, 0.8, 1)
             button_press_bounce(star)
 
-        emoji_symbol = {r[0]: r[1] for r in EMOJI_RATINGS}.get(n, "⭐")
         label_desc = STAR_LABELS.get(n, "")
-        self.ids.rating_label.text = f"{emoji_symbol} {n} / 5 — {label_desc}"
+        self.ids.rating_label.text = f"{n} / 5 Rating — {label_desc}"
         self.ids.submit_btn.text = f"SUBMIT FEEDBACK ({n} ★)"
 
     def toggle_topic(self, topic):

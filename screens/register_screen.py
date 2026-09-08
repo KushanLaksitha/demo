@@ -317,7 +317,7 @@ class RegisterScreen(Screen):
             padding=(dp(8), dp(4), dp(8), dp(4)),
         )
         lbl = MDLabel(
-            text=f"{ROLE_ICONS.get(role, '')} {role.capitalize()}",
+            text=role.capitalize(),
             halign="center",
             bold=False,
             font_style="Caption",
@@ -392,16 +392,16 @@ class RegisterScreen(Screen):
             self.ids.email_status.text = ""
             return
         if not is_valid_email_format(email):
-            self.ids.email_status.text = "⚠ That doesn't look like a valid email."
+            self.ids.email_status.text = "That doesn't look like a valid email."
             self.ids.email_status.text_color = (0.85, 0.18, 0.18, 1)
             self.email_valid = False
             return
         if email_already_registered(email):
-            self.ids.email_status.text = "⚠ An account with this email already exists."
+            self.ids.email_status.text = "An account with this email already exists."
             self.ids.email_status.text_color = (0.85, 0.18, 0.18, 1)
             self.email_valid = False
             return
-        self.ids.email_status.text = "✓ Email looks good."
+        self.ids.email_status.text = "Email looks good."
         self.ids.email_status.text_color = (0.26, 0.63, 0.28, 1)
         self.email_valid = True
 
@@ -419,7 +419,7 @@ class RegisterScreen(Screen):
         elif missing:
             self.ids.strength_label.text = f"{label} — needs: {missing[0].lower()}"
         else:
-            self.ids.strength_label.text = f"{label} password ✓"
+            self.ids.strength_label.text = f"{label} password"
         self.check_password_match()
 
     def check_password_match(self):
@@ -429,10 +429,10 @@ class RegisterScreen(Screen):
             self.ids.match_label.text = ""
             return
         if pw == confirm:
-            self.ids.match_label.text = "✓ Passwords match."
+            self.ids.match_label.text = "Passwords match."
             self.ids.match_label.text_color = (0.26, 0.63, 0.28, 1)
         else:
-            self.ids.match_label.text = "⚠ Passwords do not match."
+            self.ids.match_label.text = "Passwords do not match."
             self.ids.match_label.text_color = (0.85, 0.18, 0.18, 1)
 
     # ── dropdowns ─────────────────────────────────────────────────────────

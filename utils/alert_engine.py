@@ -76,7 +76,7 @@ def generate_alerts(predictions, current_prices=None):
                 "severity": "high",
                 "icon": "arrow-up-bold-circle",
                 "message": (
-                    f"🔴 {veg} price predicted to spike to Rs.{pred_price:.0f}/kg "
+                    f"{veg} price predicted to spike to Rs.{pred_price:.0f}/kg "
                     f"(+{change_pct:.0f}% from Rs.{cur_price:.0f}/kg) in {district}. "
                     f"Consider selling soon for maximum profit."
                 ),
@@ -88,7 +88,7 @@ def generate_alerts(predictions, current_prices=None):
                 "severity": "medium",
                 "icon": "arrow-down-bold-circle",
                 "message": (
-                    f"🟡 {veg} price may drop to Rs.{pred_price:.0f}/kg "
+                    f"{veg} price may drop to Rs.{pred_price:.0f}/kg "
                     f"({change_pct:.0f}% from Rs.{cur_price:.0f}/kg) in {district}. "
                     f"Hold stock or find alternative markets."
                 ),
@@ -105,7 +105,7 @@ def generate_alerts(predictions, current_prices=None):
                 "severity": "high",
                 "icon": "weather-pouring",
                 "message": (
-                    f"🔴 Heavy rainfall predicted ({rainfall_pred:.0f}mm) in {district}. "
+                    f"Heavy rainfall predicted ({rainfall_pred:.0f}mm) in {district}. "
                     f"Protect crops from waterlogging and fungal disease. "
                     f"Postpone fertilizer application and outdoor planting."
                 ),
@@ -117,7 +117,7 @@ def generate_alerts(predictions, current_prices=None):
                 "severity": "medium",
                 "icon": "weather-sunny-alert",
                 "message": (
-                    f"🟡 Very low rainfall forecast ({rainfall_pred:.0f}mm) in {district}. "
+                    f"Very low rainfall forecast ({rainfall_pred:.0f}mm) in {district}. "
                     f"Drought conditions possible — increase irrigation and "
                     f"apply mulching to conserve soil moisture."
                 ),
@@ -139,7 +139,7 @@ def generate_alerts(predictions, current_prices=None):
                 "severity": "medium",
                 "icon": "package-variant-plus",
                 "message": (
-                    f"🟡 {veg} production surplus expected ({pred_prod:.0f} Mt, "
+                    f"{veg} production surplus expected ({pred_prod:.0f} Mt, "
                     f"{((pred_prod / baseline) * 100):.0f}% of seasonal average). "
                     f"Prices may dip due to oversupply — plan early sales."
                 ),
@@ -151,7 +151,7 @@ def generate_alerts(predictions, current_prices=None):
                 "severity": "high",
                 "icon": "package-variant-minus",
                 "message": (
-                    f"🔴 {veg} production shortage predicted ({pred_prod:.0f} Mt, "
+                    f"{veg} production shortage predicted ({pred_prod:.0f} Mt, "
                     f"only {((pred_prod / baseline) * 100):.0f}% of seasonal average). "
                     f"Expect higher prices — opportunity for growers who can supply."
                 ),

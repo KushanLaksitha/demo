@@ -468,7 +468,7 @@ class AdminDashboardScreen(Screen):
 
         # Details Row: Email & District
         details_label = MDLabel(
-            text=f"✉ {u['email']}   •   📍 {u['district']}",
+            text=f"Email: {u['email']}   •   District: {u['district']}",
             font_style="Caption",
             theme_text_color="Custom",
             text_color=(0.4, 0.4, 0.4, 1),
@@ -699,7 +699,7 @@ class AdminDashboardScreen(Screen):
         if avg is None:
             self.ids.avg_rating_label.text = "No ratings yet"
         else:
-            self.ids.avg_rating_label.text = f"⭐ {avg} / 5 average  ·  from {count} rating(s)"
+            self.ids.avg_rating_label.text = f"★ {avg} / 5 average  ·  from {count} rating(s)"
 
         box = self.ids.feedback_box
         box.clear_widgets()
