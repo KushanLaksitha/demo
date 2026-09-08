@@ -401,8 +401,8 @@ class FeedbackScreen(Screen):
                 star.text_color = (0.8, 0.8, 0.8, 1)
             button_press_bounce(star)
 
-        emoji_symbol = dict(EMOJI_RATINGS)[n][0]
-        label_desc = STAR_LABELS[n]
+        emoji_symbol = {r[0]: r[1] for r in EMOJI_RATINGS}.get(n, "⭐")
+        label_desc = STAR_LABELS.get(n, "")
         self.ids.rating_label.text = f"{emoji_symbol} {n} / 5 — {label_desc}"
         self.ids.submit_btn.text = f"SUBMIT FEEDBACK ({n} ★)"
 
