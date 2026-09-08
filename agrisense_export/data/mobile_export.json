@@ -1,0 +1,205 @@
+{
+  "generated_at": "2026-09-08T15:44:14.115355",
+  "price_model_metrics": {
+    "Beans": {
+      "rmse": 129.4349202097691,
+      "mae": 105.13817901909351,
+      "mape": 37.73351954032114,
+      "dir_acc": 44.9438202247191
+    },
+    "Cabbage": {
+      "rmse": 58.85082660244317,
+      "mae": 47.99111353697048,
+      "mape": 31.35328540652858,
+      "dir_acc": 44.9438202247191
+    },
+    "Carrots": {
+      "rmse": 123.63676689458978,
+      "mae": 104.9813096953763,
+      "mape": 51.43934061245713,
+      "dir_acc": 53.93258426966292
+    },
+    "Leeks": {
+      "rmse": 84.27261326659486,
+      "mae": 55.64502454962995,
+      "mape": 25.782053257876992,
+      "dir_acc": 50.56179775280899
+    },
+    "Okra": {
+      "rmse": 35.6973271783164,
+      "mae": 29.538964304659107,
+      "mape": 32.305728156721855,
+      "dir_acc": 43.82022471910113
+    }
+  },
+  "production_model_metrics": {
+    "rmse": 411.6462894947417,
+    "mae": 284.06294744708987,
+    "mape": 41.425914280839294,
+    "r2": 0.869923937348868,
+    "bias_pct": 29.112636956247297
+  },
+  "sarima_aic": {
+    "Beans": 817.9849605316094,
+    "Cabbage": 496.252620040854,
+    "Carrots": -121.36514892587508,
+    "Leeks": -40.60189116173997,
+    "Okra": 636.434866164708
+  },
+  "alerts_triggered_per_vegetable": [
+    {
+      "vegetable": "Beans",
+      "alerts_triggered": 17
+    },
+    {
+      "vegetable": "Cabbage",
+      "alerts_triggered": 20
+    },
+    {
+      "vegetable": "Carrots",
+      "alerts_triggered": 26
+    },
+    {
+      "vegetable": "Leeks",
+      "alerts_triggered": 18
+    },
+    {
+      "vegetable": "Okra",
+      "alerts_triggered": 25
+    }
+  ],
+  "next_week_price_forecast": [
+    {
+      "vegetable": "Beans",
+      "district": "Kandy",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 423.14
+    },
+    {
+      "vegetable": "Beans",
+      "district": "Matale",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 411.8
+    },
+    {
+      "vegetable": "Cabbage",
+      "district": "Kandy",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 140.95
+    },
+    {
+      "vegetable": "Cabbage",
+      "district": "Matale",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 121.71
+    },
+    {
+      "vegetable": "Carrots",
+      "district": "Kandy",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 191.04
+    },
+    {
+      "vegetable": "Carrots",
+      "district": "Matale",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 232.46
+    },
+    {
+      "vegetable": "Leeks",
+      "district": "Kandy",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 217.1
+    },
+    {
+      "vegetable": "Leeks",
+      "district": "Matale",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 196.18
+    },
+    {
+      "vegetable": "Okra",
+      "district": "Kandy",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 131.63
+    },
+    {
+      "vegetable": "Okra",
+      "district": "Matale",
+      "forecast_date": "2025-12-11",
+      "predicted_price_rs_per_kg": 104.1
+    }
+  ],
+  "next_season_production_forecast": [
+    {
+      "vegetable": "Beans",
+      "district": "Kandy",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 2506.06
+    },
+    {
+      "vegetable": "Beans",
+      "district": "Matale",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 2244.05
+    },
+    {
+      "vegetable": "Cabbage",
+      "district": "Kandy",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 3047.83
+    },
+    {
+      "vegetable": "Cabbage",
+      "district": "Matale",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 2062.24
+    },
+    {
+      "vegetable": "Carrots",
+      "district": "Kandy",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 534.91
+    },
+    {
+      "vegetable": "Carrots",
+      "district": "Matale",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 18.76
+    },
+    {
+      "vegetable": "Leeks",
+      "district": "Kandy",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 387.84
+    },
+    {
+      "vegetable": "Leeks",
+      "district": "Matale",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 5.44
+    },
+    {
+      "vegetable": "Okra",
+      "district": "Kandy",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 1222.52
+    },
+    {
+      "vegetable": "Okra",
+      "district": "Matale",
+      "season": "Maha",
+      "year": 2026,
+      "predicted_production_mt": 1409.07
+    }
+  ]
+}

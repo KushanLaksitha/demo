@@ -72,5 +72,6 @@ agrisense.db
 *.db
 scratch/
 
-
-
+# Large ML model files (>100MB exceed GitHub limit)
+sarima_*.pkl
+agrisense_export/models/sarima_*.pkl
