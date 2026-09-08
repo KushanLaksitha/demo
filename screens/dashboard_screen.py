@@ -2247,8 +2247,9 @@ class DashboardScreen(Screen):
         # ── avatar circle with initials ───────────────────────────────
         avatar_box = MDBoxLayout(
             orientation="vertical",
-            size_hint_y=None, height=dp(100),
+            size_hint_y=None, height=dp(105),
             spacing=dp(4),
+            pos_hint={"center_x": 0.5},
         )
         avatar_card = MDCard(
             size_hint=(None, None), size=(dp(72), dp(72)),
@@ -2281,37 +2282,43 @@ class DashboardScreen(Screen):
             orientation="vertical", padding=dp(16), spacing=dp(6),
             size_hint_y=None, height=dp(100), radius=[16, 16, 16, 16],
             md_bg_color=(0.93, 0.98, 0.93, 1), elevation=0,
+            pos_hint={"center_x": 0.5},
         )
         info_card.add_widget(MDLabel(
             text=self.user["email"],
             theme_text_color="Custom", text_color=(0.40, 0.40, 0.40, 1),
-            font_style="Caption",
+            font_style="Caption", halign="center",
         ))
         info_card.add_widget(MDLabel(
             text=f"Role: {self.user['user_type'].capitalize()}",
             theme_text_color="Custom", text_color=(0.22, 0.60, 0.28, 1),
+            font_style="Subtitle2", bold=True, halign="center",
         ))
         info_card.add_widget(MDLabel(
             text=f"District: {self.user.get('district') or '—'}",
             theme_text_color="Custom", text_color=(0.22, 0.60, 0.28, 1),
+            font_style="Subtitle2", bold=True, halign="center",
         ))
         box.add_widget(info_card)
 
         # ── action buttons ────────────────────────────────────────────
         def _btn(text, bg, callback, txt_color=(1, 1, 1, 1)):
             b = MDRaisedButton(
-                text=text, size_hint_x=1,
+                text=text,
                 md_bg_color=bg, text_color=txt_color,
                 elevation=2, _radius=12,
                 on_release=callback,
             )
+            b.size_hint_x = 1
+            b.pos_hint = {"center_x": 0.5}
             return b
 
-        edit_btn      = _btn("●  Edit Profile Details",  (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
-        crops_btn     = _btn("●  Edit Followed Crops",    (0.38, 0.75, 0.40, 1), self.edit_crops)
-        feedback_btn  = _btn("●  Send Feedback",          (0.91, 0.96, 0.91, 1), self.go_feedback,
+
+        edit_btn      = _btn("Edit Profile Details",  (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
+        crops_btn     = _btn("Edit Followed Crops",    (0.38, 0.75, 0.40, 1), self.edit_crops)
+        feedback_btn  = _btn("Send Feedback",          (0.91, 0.96, 0.91, 1), self.go_feedback,
                               txt_color=(0.10, 0.10, 0.10, 1))
-        logout_btn    = _btn("●  Log Out",                (0.85, 0.20, 0.20, 1), self.logout)
+        logout_btn    = _btn("Log Out",                (0.85, 0.20, 0.20, 1), self.logout)
 
         for b in [edit_btn, crops_btn, feedback_btn, logout_btn]:
             box.add_widget(b)
@@ -2319,6 +2326,7 @@ class DashboardScreen(Screen):
         stagger_fade_in([avatar_box, info_card, edit_btn, crops_btn, feedback_btn, logout_btn],
                         step=0.06, duration=0.28)
         center_scroll_content(box.parent, box)
+
 
     # ══════════════════════════════════════════════════════════════════════
     # EDIT PROFILE DIALOG
