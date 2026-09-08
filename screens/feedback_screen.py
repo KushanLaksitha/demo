@@ -1,6 +1,7 @@
 from kivy.lang import Builder
 from kivy.uix.screenmanager import Screen
 from kivy.metrics import dp
+from kivy.clock import Clock
 from kivymd.uix.button import MDRaisedButton, MDIconButton, MDFlatButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
@@ -49,7 +50,7 @@ KV = """
                 id: content_box
                 orientation: "vertical"
                 padding: dp(16)
-                spacing: dp(12)
+                spacing: dp(14)
                 size_hint_y: None
                 height: self.minimum_height
 
@@ -170,12 +171,12 @@ KV = """
                             size_hint_x: None
                             width: self.minimum_width
 
-                # Step 3: Quick Impression Pills (Pre-filled Preset Messages) Card
+                # Step 3: Quick Impression Pills Card
                 MDCard:
                     id: card_step3
                     orientation: "vertical"
                     size_hint_y: None
-                    height: self.minimum_height
+                    height: quick_pills_box.height + dp(48)
                     padding: dp(12)
                     spacing: dp(8)
                     radius: [14, 14, 14, 14]
@@ -203,7 +204,7 @@ KV = """
                     id: card_step4
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(220)
+                    height: dp(230)
                     padding: dp(12)
                     spacing: dp(8)
                     radius: [14, 14, 14, 14]
@@ -212,7 +213,7 @@ KV = """
 
                     MDBoxLayout:
                         size_hint_y: None
-                        height: dp(24)
+                        height: dp(28)
                         MDLabel:
                             text: "4. Additional Details (Optional)"
                             bold: True
@@ -257,22 +258,22 @@ EMOJI_RATINGS = [
 STAR_LABELS = {1: "Poor", 2: "Fair", 3: "Good", 4: "Very good", 5: "Loved it!"}
 
 TOPIC_OPTIONS = [
-    "📈 Price Predictions",
-    "🌾 Crop Guidance",
-    "🌦️ Weather Info",
-    "⚡ Speed & UI",
-    "🐞 Bug / Issue",
-    "💡 Feature Idea",
+    "Price Predictions",
+    "Crop Guidance",
+    "Weather Info",
+    "Speed & UI",
+    "Bug / Issue",
+    "Feature Idea",
 ]
 
 PRESET_PILLS = [
-    "🎯 Price forecasts are super accurate & helpful!",
-    "⚡ App is fast, smooth & very easy to navigate",
-    "🌾 Helps me plan crop sales & harvest timing",
-    "📊 Market demand trends & charts are clear",
-    "🔔 Alert notifications keep me updated in time",
-    "➕ Requesting support for more crop varieties",
-    "🐞 Found a small display or loading issue",
+    "Price forecasts are super accurate & helpful!",
+    "App is fast, smooth & very easy to navigate",
+    "Helps me plan crop sales & harvest timing",
+    "Market demand trends & charts are clear",
+    "Alert notifications keep me updated in time",
+    "Requesting support for more crop varieties",
+    "Found a small display or loading issue",
 ]
 
 
@@ -295,7 +296,7 @@ class FeedbackScreen(Screen):
         self._build_star_row()
         self._build_topic_chips()
         self._build_quick_pills()
-        center_scroll_content(self.ids.scrollview, self.ids.content_box)
+        Clock.schedule_once(lambda dt: center_scroll_content(self.ids.scrollview, self.ids.content_box), 0)
 
     def on_enter(self, *args):
         fade_in(self.ids.content_box, duration=0.25)
@@ -378,6 +379,10 @@ class FeedbackScreen(Screen):
             )
             box.add_widget(btn)
             self.pill_widget_map[pill] = btn
+
+        box.height = box.minimum_height
+        self.ids.card_step3.height = box.height + dp(48)
+
 
     def set_rating(self, n):
         self.selected_rating = n
