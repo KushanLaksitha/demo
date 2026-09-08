@@ -2279,8 +2279,9 @@ class DashboardScreen(Screen):
 
         # ── profile info card ────────────────────────────────────────
         info_card = MDCard(
-            orientation="vertical", padding=dp(16), spacing=dp(6),
-            size_hint_y=None, height=dp(100), radius=[16, 16, 16, 16],
+            orientation="vertical", padding=dp(14), spacing=dp(4),
+            size_hint=(None, None), width=dp(260), height=dp(90),
+            radius=[16, 16, 16, 16],
             md_bg_color=(0.93, 0.98, 0.93, 1), elevation=0,
             pos_hint={"center_x": 0.5},
         )
@@ -2302,26 +2303,33 @@ class DashboardScreen(Screen):
         box.add_widget(info_card)
 
         # ── action buttons ────────────────────────────────────────────
-        def _btn(text, bg, callback, txt_color=(1, 1, 1, 1)):
-            b = MDRaisedButton(
+        from kivymd.uix.button import MDFillRoundFlatIconButton
+
+        def _btn(text, icon, bg, callback, txt_color=(1, 1, 1, 1)):
+            b = MDFillRoundFlatIconButton(
                 text=text,
-                md_bg_color=bg, text_color=txt_color,
-                elevation=2, _radius=12,
+                icon=icon,
+                md_bg_color=bg,
+                text_color=txt_color,
+                icon_color=txt_color,
+                elevation=1,
+                size_hint=(None, None),
+                width=dp(230),
+                height=dp(40),
+                pos_hint={"center_x": 0.5},
                 on_release=callback,
             )
-            b.size_hint_x = 1
-            b.pos_hint = {"center_x": 0.5}
             return b
 
-
-        edit_btn      = _btn("Edit Profile Details",  (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
-        crops_btn     = _btn("Edit Followed Crops",    (0.38, 0.75, 0.40, 1), self.edit_crops)
-        feedback_btn  = _btn("Send Feedback",          (0.91, 0.96, 0.91, 1), self.go_feedback,
-                              txt_color=(0.10, 0.10, 0.10, 1))
-        logout_btn    = _btn("Log Out",                (0.85, 0.20, 0.20, 1), self.logout)
+        edit_btn      = _btn("Edit Profile Details", "account-edit-outline", (0.22, 0.60, 0.28, 1), self.open_edit_profile_dialog)
+        crops_btn     = _btn("Edit Followed Crops",   "sprout-outline",       (0.32, 0.68, 0.35, 1), self.edit_crops)
+        feedback_btn  = _btn("Send Feedback",         "comment-text-outline", (0.90, 0.96, 0.90, 1), self.go_feedback,
+                              txt_color=(0.12, 0.35, 0.16, 1))
+        logout_btn    = _btn("Log Out",               "logout",               (0.88, 0.22, 0.22, 1), self.logout)
 
         for b in [edit_btn, crops_btn, feedback_btn, logout_btn]:
             box.add_widget(b)
+
 
         stagger_fade_in([avatar_box, info_card, edit_btn, crops_btn, feedback_btn, logout_btn],
                         step=0.06, duration=0.28)
