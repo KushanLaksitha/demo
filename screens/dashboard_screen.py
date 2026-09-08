@@ -2312,7 +2312,6 @@ class DashboardScreen(Screen):
                 md_bg_color=bg,
                 text_color=txt_color,
                 icon_color=txt_color,
-                elevation=1,
                 size_hint=(None, None),
                 width=dp(230),
                 height=dp(40),
