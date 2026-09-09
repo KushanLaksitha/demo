@@ -147,36 +147,6 @@ KV = """
                     text_color: 1, 1, 1, 1
                     on_release: root.go_to_feedback()
 
-        # ── SEARCH + ACTION ROW ─────────────────────────────────────────
-        MDBoxLayout:
-            size_hint_y: None
-            height: dp(54)
-            padding: dp(12), dp(6), dp(12), dp(6)
-            spacing: dp(8)
-            canvas.before:
-                Color:
-                    rgba: 1, 1, 1, 1
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-
-            MDTextField:
-                id: user_search_field
-                hint_text: "Search by name or email"
-                icon_left: "magnify"
-                mode: "rectangle"
-                line_color_focus: 0.20, 0.55, 0.28, 1
-                on_text: root.on_search_text_changed(self.text)
-
-            MDRaisedButton:
-                text: "+ Create"
-                md_bg_color: 0.20, 0.55, 0.28, 1
-                text_color: 1, 1, 1, 1
-                _radius: 8
-                size_hint_x: None
-                width: dp(82)
-                elevation: 0
-                on_release: root.go_to_create_user()
 
         # ── ROLE FILTER CHIPS ───────────────────────────────────────────
         ScrollView:
