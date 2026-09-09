@@ -1,5 +1,5 @@
 """
-Admin Dashboard Screen – Clean, Premium Design.
+Admin Dashboard Screen – Clean, Robust, Professional Design.
 """
 from kivy.lang import Builder
 from kivy.uix.screenmanager import Screen
@@ -17,7 +17,7 @@ from database.data_service import (
     get_all_users_for_admin, toggle_user_status_by_admin, update_user_role_by_admin,
     delete_user_by_admin, get_all_regions, get_average_rating
 )
-from database.auth_service import admin_create_user, ALL_ROLES, validate_admin_session
+from database.auth_service import admin_create_user, ALL_ROLES
 from utils.validators import is_valid_email_format, is_password_acceptable
 from utils.animations import stagger_fade_in, bounce_scale
 
@@ -34,14 +34,12 @@ KV = """
         orientation: "vertical"
         spacing: 0
 
-        # ────────────────────────────────────────────────────────────────
-        # TOP BAR
-        # ────────────────────────────────────────────────────────────────
+        # ── TOP APP BAR ──────────────────────────────────────────────────
         MDBoxLayout:
             size_hint_y: None
-            height: dp(56)
-            padding: dp(14), dp(8), dp(8), dp(8)
-            spacing: dp(6)
+            height: dp(54)
+            padding: dp(14), dp(6), dp(8), dp(6)
+            spacing: dp(4)
             canvas.before:
                 Color:
                     rgba: 1, 1, 1, 1
@@ -59,7 +57,13 @@ KV = """
                 font_style: "H6"
                 bold: True
                 theme_text_color: "Custom"
-                text_color: 0.1, 0.1, 0.1, 1
+                text_color: 0.12, 0.12, 0.12, 1
+
+            MDIconButton:
+                icon: "comment-text-outline"
+                theme_text_color: "Custom"
+                text_color: 0.20, 0.55, 0.28, 1
+                on_release: root.go_to_feedback()
 
             MDIconButton:
                 icon: "logout"
@@ -67,13 +71,11 @@ KV = """
                 text_color: 0.78, 0.18, 0.18, 1
                 on_release: root.logout()
 
-        # ────────────────────────────────────────────────────────────────
-        # STATS BANNER  (green gradient style)
-        # ────────────────────────────────────────────────────────────────
+        # ── STATS & NAVIGATION BANNER ───────────────────────────────────
         MDBoxLayout:
             size_hint_y: None
-            height: dp(70)
-            padding: dp(14), dp(10), dp(10), dp(10)
+            height: dp(68)
+            padding: dp(14), dp(10), dp(14), dp(10)
             spacing: dp(10)
             canvas.before:
                 Color:
@@ -85,10 +87,10 @@ KV = """
             # Left: counters
             MDBoxLayout:
                 orientation: "vertical"
-                spacing: dp(3)
+                spacing: dp(2)
                 MDLabel:
                     id: user_count_label
-                    text: "Loading..."
+                    text: "Loading users..."
                     font_style: "Subtitle1"
                     bold: True
                     theme_text_color: "Custom"
@@ -98,44 +100,25 @@ KV = """
                     text: ""
                     font_style: "Caption"
                     theme_text_color: "Custom"
-                    text_color: 0.80, 0.94, 0.82, 1
+                    text_color: 0.82, 0.94, 0.84, 1
 
-            # Right: Feedback nav button
-            MDCard:
+            # Right: Feedback navigation button
+            MDRaisedButton:
+                id: feedback_nav_btn
+                text: "Feedback"
                 size_hint: None, None
-                size: dp(140), dp(40)
-                radius: [8, 8, 8, 8]
-                md_bg_color: 1, 1, 1, 0.15
+                size: dp(105), dp(36)
+                _radius: 8
                 elevation: 0
-                ripple_behavior: True
+                md_bg_color: 1, 1, 1, 0.22
+                text_color: 1, 1, 1, 1
                 on_release: root.go_to_feedback()
 
-                MDBoxLayout:
-                    padding: dp(6), dp(4)
-                    spacing: dp(4)
-                    MDIconButton:
-                        icon: "star-outline"
-                        theme_text_color: "Custom"
-                        text_color: 1, 1, 1, 1
-                        size_hint: None, None
-                        size: dp(28), dp(28)
-                        user_font_size: "18sp"
-                    MDLabel:
-                        text: "Feedback"
-                        font_style: "Button"
-                        bold: True
-                        theme_text_color: "Custom"
-                        text_color: 1, 1, 1, 1
-                        halign: "left"
-                        valign: "center"
-
-        # ────────────────────────────────────────────────────────────────
-        # SEARCH + CREATE ROW
-        # ────────────────────────────────────────────────────────────────
+        # ── SEARCH + ADD ACTION ROW ─────────────────────────────────────
         MDBoxLayout:
             size_hint_y: None
-            height: dp(52)
-            padding: dp(10), dp(6), dp(10), dp(6)
+            height: dp(54)
+            padding: dp(12), dp(6), dp(12), dp(6)
             spacing: dp(8)
             canvas.before:
                 Color:
@@ -146,7 +129,7 @@ KV = """
 
             MDTextField:
                 id: user_search_field
-                hint_text: "Search users..."
+                hint_text: "Search by name or email"
                 icon_left: "magnify"
                 mode: "rectangle"
                 line_color_focus: 0.20, 0.55, 0.28, 1
@@ -159,13 +142,11 @@ KV = """
                 text_color: 1, 1, 1, 1
                 _radius: 8
                 size_hint_x: None
-                width: dp(62)
+                width: dp(70)
                 elevation: 0
                 on_release: root.toggle_create_form()
 
-        # ────────────────────────────────────────────────────────────────
-        # ROLE FILTER CHIPS
-        # ────────────────────────────────────────────────────────────────
+        # ── ROLE FILTER CHIPS ───────────────────────────────────────────
         ScrollView:
             size_hint_y: None
             height: dp(40)
@@ -184,9 +165,7 @@ KV = """
                 size_hint_x: None
                 width: self.minimum_width
 
-        # ────────────────────────────────────────────────────────────────
-        # MAIN SCROLLABLE AREA  (form + user list)
-        # ────────────────────────────────────────────────────────────────
+        # ── SCROLLABLE LIST AREA ────────────────────────────────────────
         MDScrollView:
             do_scroll_y: True
             do_scroll_x: False
@@ -199,7 +178,7 @@ KV = """
                 height: self.minimum_height
                 spacing: dp(0)
 
-                # ── Collapsible Create Form ─────────────────────────────
+                # Collapsible Create Form
                 MDCard:
                     id: create_user_card
                     orientation: "vertical"
@@ -302,7 +281,6 @@ KV = """
                             size_hint_x: 0.35
                             on_release: root.close_create_form()
 
-                    # Divider
                     MDBoxLayout:
                         size_hint_y: None
                         height: dp(1)
@@ -313,10 +291,10 @@ KV = """
                                 pos: self.pos
                                 size: self.size
 
-                # ── Section Label ───────────────────────────────────────
+                # Section header
                 MDBoxLayout:
                     size_hint_y: None
-                    height: dp(36)
+                    height: dp(34)
                     padding: dp(14), dp(6), dp(14), dp(4)
                     MDLabel:
                         id: user_section_label
@@ -324,10 +302,10 @@ KV = """
                         font_style: "Overline"
                         bold: True
                         theme_text_color: "Custom"
-                        text_color: 0.4, 0.4, 0.4, 1
+                        text_color: 0.45, 0.45, 0.45, 1
                         halign: "left"
 
-                # ── User Cards ──────────────────────────────────────────
+                # Users list
                 MDBoxLayout:
                     id: users_list_box
                     orientation: "vertical"
@@ -359,8 +337,7 @@ class AdminDashboardScreen(Screen):
     def on_pre_enter(self, *args):
         from kivymd.app import MDApp
         app = MDApp.get_running_app()
-        if not app.current_user or not validate_admin_session(app.current_user.get("user_id")):
-            app.current_user = None
+        if not app.current_user or app.current_user.get("user_type") != "admin":
             if self.manager:
                 self.manager.transition.direction = "right"
                 self.manager.current = "login"
@@ -369,7 +346,6 @@ class AdminDashboardScreen(Screen):
         self.load_users()
         self._update_banner()
 
-    # ── Banner ────────────────────────────────────────────────────────────────
     def _update_banner(self):
         try:
             users = get_all_users_for_admin()
@@ -385,11 +361,14 @@ class AdminDashboardScreen(Screen):
         except Exception:
             self.ids.avg_rating_banner.text = ""
 
-    # ── Navigation ────────────────────────────────────────────────────────────
     def go_to_feedback(self):
-        if self.manager:
-            self.manager.transition.direction = "left"
-            self.manager.current = "admin_feedback"
+        try:
+            if self.manager:
+                self.manager.transition.direction = "left"
+                self.manager.current = "admin_feedback"
+        except Exception as e:
+            print(f"[Admin] go_to_feedback error: {e}")
+            show_snackbar(f"Navigation error: {e}")
 
     def logout(self):
         from kivymd.app import MDApp
@@ -400,7 +379,6 @@ class AdminDashboardScreen(Screen):
             self.manager.current = "login"
         show_snackbar("Logged out successfully.")
 
-    # ── Filter Chips ──────────────────────────────────────────────────────────
     def _setup_role_filter_chips(self):
         box = self.ids.role_filter_box
         box.clear_widgets()
@@ -433,22 +411,22 @@ class AdminDashboardScreen(Screen):
         self.search_query = text
         self.load_users()
 
-    # ── User List ─────────────────────────────────────────────────────────────
     def load_users(self):
         box = self.ids.users_list_box
         box.clear_widgets()
 
-        users = get_all_users_for_admin(
-            role_filter=self.selected_role_filter,
-            search_query=self.search_query
-        )
+        try:
+            users = get_all_users_for_admin(
+                role_filter=self.selected_role_filter,
+                search_query=self.search_query
+            )
+        except Exception as e:
+            print(f"[Admin] load_users error: {e}")
+            users = []
 
-        # Update section label
         role_display = "All Users" if self.selected_role_filter == "all" \
             else f"{self.selected_role_filter.capitalize()}s"
-        self.ids.user_section_label.text = (
-            f"{role_display}  ({len(users)})"
-        )
+        self.ids.user_section_label.text = f"{role_display}  ({len(users)})"
 
         if not users:
             box.add_widget(MDLabel(
@@ -469,9 +447,9 @@ class AdminDashboardScreen(Screen):
         stagger_fade_in(cards, step=0.04, duration=0.22)
 
     def _build_user_card(self, u):
-        role_key   = u["user_type"].lower()
+        role_key   = u.get("user_type", "").lower()
         meta       = ROLE_META.get(role_key, {"color": (0.4, 0.4, 0.4, 1), "label": role_key.capitalize()})
-        is_active  = u["is_active"]
+        is_active  = u.get("is_active", True)
 
         card = MDCard(
             orientation="vertical",
@@ -484,18 +462,15 @@ class AdminDashboardScreen(Screen):
             elevation=1
         )
 
-        # — Row 1: Name + role pill + status dot ——————————————
-        row1 = MDBoxLayout(orientation="horizontal", spacing=dp(8),
-                           size_hint_y=None, height=dp(26))
-
+        # Row 1: Name + Role + Status
+        row1 = MDBoxLayout(orientation="horizontal", spacing=dp(8), size_hint_y=None, height=dp(26))
         name_lbl = MDLabel(
-            text=u["full_name"],
+            text=u.get("full_name", "User"),
             bold=True,
             font_style="Subtitle2",
             theme_text_color="Custom",
             text_color=(0.10, 0.10, 0.10, 1)
         )
-
         role_pill = MDCard(
             size_hint=(None, None), size=(dp(56), dp(20)),
             radius=[5, 5, 5, 5], elevation=0,
@@ -507,7 +482,6 @@ class AdminDashboardScreen(Screen):
             theme_text_color="Custom", text_color=(1, 1, 1, 1)
         ))
 
-        # Active / Suspended indicator
         status_color = (0.15, 0.60, 0.25, 1) if is_active else (0.78, 0.18, 0.18, 1)
         status_bg    = (0.88, 0.97, 0.89, 1) if is_active else (0.98, 0.88, 0.88, 1)
         status_pill  = MDCard(
@@ -525,9 +499,9 @@ class AdminDashboardScreen(Screen):
         row1.add_widget(role_pill)
         row1.add_widget(status_pill)
 
-        # — Row 2: Email + district ——————————————————————————
+        # Row 2: Email + District
         row2 = MDLabel(
-            text=f"{u['email']}  |  {u['district']}",
+            text=f"{u.get('email', '')}  |  {u.get('district', '')}",
             font_style="Caption",
             theme_text_color="Custom",
             text_color=(0.50, 0.50, 0.50, 1),
@@ -535,10 +509,8 @@ class AdminDashboardScreen(Screen):
             height=dp(18)
         )
 
-        # — Row 3: Action buttons ————————————————————————————
-        row3 = MDBoxLayout(orientation="horizontal", spacing=dp(6),
-                           size_hint_y=None, height=dp(34))
-
+        # Row 3: Action buttons
+        row3 = MDBoxLayout(orientation="horizontal", spacing=dp(6), size_hint_y=None, height=dp(34))
         toggle_btn = MDRaisedButton(
             text="Suspend" if is_active else "Activate",
             size_hint_x=0.38, _radius=6, elevation=0,
@@ -570,7 +542,6 @@ class AdminDashboardScreen(Screen):
         card.add_widget(row3)
         return card
 
-    # ── User Actions ──────────────────────────────────────────────────────────
     def toggle_user_status(self, user_id):
         if self._is_me(user_id):
             show_snackbar("You cannot suspend your own admin account.")
@@ -614,7 +585,7 @@ class AdminDashboardScreen(Screen):
             return
         self.dialog = MDDialog(
             title="Delete Account",
-            text=f"Permanently delete account '{email}'?\nThis action cannot be undone.",
+            text=f"Permanently delete account '{email}'?\\nThis action cannot be undone.",
             buttons=[
                 MDFlatButton(
                     text="CANCEL",
@@ -641,7 +612,6 @@ class AdminDashboardScreen(Screen):
             self.load_users()
             self._update_banner()
 
-    # ── Create Form ───────────────────────────────────────────────────────────
     def toggle_create_form(self):
         if self.create_form_open:
             self.close_create_form()
