@@ -163,7 +163,7 @@ KV = """
             MDRaisedButton:
                 id: filter_all_btn
                 text: "All (4)"
-                size_hint=(None, None)
+                size_hint: None, None
                 height: dp(30)
                 _radius: 15
                 elevation: 0
@@ -174,7 +174,7 @@ KV = """
             MDRaisedButton:
                 id: filter_new_btn
                 text: "New (2)"
-                size_hint=(None, None)
+                size_hint: None, None
                 height: dp(30)
                 _radius: 15
                 elevation: 0
@@ -185,7 +185,7 @@ KV = """
             MDRaisedButton:
                 id: filter_reviewed_btn
                 text: "Reviewed (2)"
-                size_hint=(None, None)
+                size_hint: None, None
                 height: dp(30)
                 _radius: 15
                 elevation: 0
