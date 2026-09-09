@@ -104,11 +104,11 @@ def set_user_preferred_crop_ids(user_id, crop_ids):
 def get_price_history(crop_id, region_id=None, weeks=12):
     db = get_session()
     try:
-        cutoff = date.today() - timedelta(weeks=weeks)
-        q = db.query(Price).filter(Price.crop_id == crop_id, Price.date >= cutoff)
+        q = db.query(Price).filter(Price.crop_id == crop_id)
         if region_id:
             q = q.filter(Price.region_id == region_id)
-        rows = q.order_by(Price.date).all()
+        rows = q.order_by(Price.date.desc()).limit(weeks).all()
+        rows = sorted(rows, key=lambda r: r.date)
         return [(r.date.strftime("%d %b"), float(r.price)) for r in rows]
     finally:
         db.close()
@@ -118,11 +118,11 @@ def get_price_history(crop_id, region_id=None, weeks=12):
 def get_production_history(crop_id, region_id=None, weeks=12):
     db = get_session()
     try:
-        cutoff = date.today() - timedelta(weeks=weeks)
-        q = db.query(Production).filter(Production.crop_id == crop_id, Production.record_date >= cutoff)
+        q = db.query(Production).filter(Production.crop_id == crop_id)
         if region_id:
             q = q.filter(Production.region_id == region_id)
-        rows = q.order_by(Production.record_date).all()
+        rows = q.order_by(Production.record_date.desc()).limit(weeks).all()
+        rows = sorted(rows, key=lambda r: r.record_date)
         return [(r.record_date.strftime("%d %b"), float(r.quantity)) for r in rows]
     finally:
         db.close()
@@ -756,30 +756,54 @@ def get_region_district(region_id):
 # -----------------------------------------------------------------
 
 @db_safe(default=lambda: None)
-def get_price_by_date(crop_id, target_date, region_id=None):
+def get_price_by_date(crop_id, target_date, region_id=None, allow_nearest=True):
     """Return the price (float) for a specific crop on a given date.
-    Returns None if no record exists."""
+    Returns None if no record exists within ±7 days."""
     db = get_session()
     try:
         q = db.query(Price).filter(Price.crop_id == crop_id, Price.date == target_date)
         if region_id:
             q = q.filter(Price.region_id == region_id)
         row = q.first()
-        return float(row.price) if row else None
+        if row:
+            return float(row.price)
+        if allow_nearest:
+            min_d = target_date - timedelta(days=7)
+            max_d = target_date + timedelta(days=7)
+            q_near = db.query(Price).filter(Price.crop_id == crop_id, Price.date >= min_d, Price.date <= max_d)
+            if region_id:
+                q_near = q_near.filter(Price.region_id == region_id)
+            rows = q_near.all()
+            if rows:
+                best = min(rows, key=lambda r: abs((r.date - target_date).days))
+                return float(best.price)
+        return None
     finally:
         db.close()
 
 @db_safe(default=lambda: None)
-def get_production_by_date(crop_id, target_date, region_id=None):
+def get_production_by_date(crop_id, target_date, region_id=None, allow_nearest=True):
     """Return the production quantity (float) for a specific crop on a given date.
-    Returns None if no record exists."""
+    Returns None if no record exists within ±7 days."""
     db = get_session()
     try:
         q = db.query(Production).filter(Production.crop_id == crop_id, Production.record_date == target_date)
         if region_id:
             q = q.filter(Production.region_id == region_id)
         row = q.first()
-        return float(row.quantity) if row else None
+        if row:
+            return float(row.quantity)
+        if allow_nearest:
+            min_d = target_date - timedelta(days=7)
+            max_d = target_date + timedelta(days=7)
+            q_near = db.query(Production).filter(Production.crop_id == crop_id, Production.record_date >= min_d, Production.record_date <= max_d)
+            if region_id:
+                q_near = q_near.filter(Production.region_id == region_id)
+            rows = q_near.all()
+            if rows:
+                best = min(rows, key=lambda r: abs((r.record_date - target_date).days))
+                return float(best.quantity)
+        return None
     finally:
         db.close()
 

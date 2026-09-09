@@ -2372,7 +2372,7 @@ class DashboardScreen(Screen):
         )
         actual_box.add_widget(actual_p_lbl)
 
-        prod_text = f"• Actual Production: {actual_prod:,.2f} kg" if actual_prod is not None else "• Actual Production: Not recorded for this date"
+        prod_text = f"• Actual Production: {actual_prod:,.2f} Mt" if actual_prod is not None else "• Actual Production: Not recorded for this date"
         actual_prod_lbl = MDLabel(
             text=prod_text,
             font_style="Body2",
@@ -2420,7 +2420,7 @@ class DashboardScreen(Screen):
         )
         pred_box.add_widget(pred_p_lbl)
 
-        pred_prod_text = f"• Predicted Production: {pred_prod:,.2f} kg" if pred_prod is not None else "• Predicted Production: Unavailable"
+        pred_prod_text = f"• Predicted Production: {pred_prod:,.2f} Mt" if pred_prod is not None else "• Predicted Production: Unavailable"
         pred_prod_lbl = MDLabel(
             text=pred_prod_text,
             font_style="Body2",
@@ -2487,7 +2487,7 @@ class DashboardScreen(Screen):
             chart = build_bar_chart(
                 list(dates), list(values),
                 title=f"{self.history_crop_name} — production (last 16 weeks)",
-                y_label="kg",
+                y_label="Mt",
             )
 
         chart.size_hint_y = None

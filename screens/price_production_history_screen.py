@@ -481,7 +481,7 @@ class PriceProductionHistoryScreen(Screen):
             self.ids.actual_price_label.text_color = (0.6, 0.4, 0.2, 1)
 
         if prod is not None:
-            self.ids.actual_prod_label.text = f"{prod:,.2f} kg"
+            self.ids.actual_prod_label.text = f"{prod:,.2f} Mt"
             self.ids.actual_prod_label.text_color = (0.15, 0.45, 0.20, 1)
         else:
             self.ids.actual_prod_label.text = "No production recorded for this date"
@@ -500,6 +500,6 @@ class PriceProductionHistoryScreen(Screen):
             self.ids.pred_price_label.text = "Prediction unavailable for this crop"
 
         if pred_prod is not None:
-            self.ids.pred_prod_label.text = f"{pred_prod:,.2f} kg"
+            self.ids.pred_prod_label.text = f"{pred_prod:,.2f} Mt"
         else:
             self.ids.pred_prod_label.text = "Prediction unavailable for this crop"
