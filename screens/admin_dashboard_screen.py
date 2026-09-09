@@ -4,16 +4,21 @@ Allows Admin to:
 1. Manage all user accounts (View, Search, Filter by role, Toggle Active/Suspend, Change Role, Delete User).
 2. Create Policy Maker (and other role) accounts with immediate activation.
 3. Review user feedback and ratings.
+
+REBUILT: Full layout rewrite to fix button interaction and scrolling issues.
 """
 from kivy.lang import Builder
 from kivy.uix.screenmanager import Screen
 from kivy.metrics import dp
+from kivy.clock import Clock
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.scrollview import MDScrollView
 from utils.layout_helpers import show_snackbar
 
 from database.data_service import (
@@ -36,8 +41,8 @@ KV = """
 
     MDBoxLayout:
         orientation: "vertical"
-        padding: dp(16), dp(36), dp(16), dp(16)
-        spacing: dp(10)
+        padding: dp(12), dp(28), dp(12), dp(8)
+        spacing: dp(6)
 
         # ── Header ───────────────────────────────────────────────────────
         MDBoxLayout:
@@ -65,169 +70,178 @@ KV = """
                 id: tab_users_btn
                 text: "User Accounts"
                 size_hint_x: 0.5
-                md_bg_color: (0.25, 0.62, 0.30, 1)
-                text_color: (1, 1, 1, 1)
+                md_bg_color: 0.25, 0.62, 0.30, 1
+                text_color: 1, 1, 1, 1
                 _radius: 8
                 on_release: root.switch_tab("users")
             MDRaisedButton:
                 id: tab_feedback_btn
                 text: "Feedback"
                 size_hint_x: 0.5
-                md_bg_color: (0.9, 0.94, 0.9, 1)
-                text_color: (0.2, 0.4, 0.2, 1)
+                md_bg_color: 0.9, 0.94, 0.9, 1
+                text_color: 0.2, 0.4, 0.2, 1
                 _radius: 8
                 on_release: root.switch_tab("feedback")
 
-        # ── TAB 1: USER ACCOUNTS MANAGEMENT ──────────────────────────────
-        MDBoxLayout:
-            id: users_tab_content
-            orientation: "vertical"
-            spacing: dp(8)
+        # ── TAB 1: USER ACCOUNTS — scrollable ─────────────────────────
+        MDScrollView:
+            id: users_scroll
+            do_scroll_y: True
+            do_scroll_x: False
+            bar_width: 2
+            bar_color: 0.25, 0.62, 0.30, 0.6
 
-            # Top Action Bar: Create Policymaker button
-            MDCard:
-                size_hint_y: None
-                height: dp(48)
-                padding: dp(6)
-                radius: [10, 10, 10, 10]
-                md_bg_color: (0.25, 0.62, 0.30, 0.12)
-                elevation: 0
-                MDBoxLayout:
-                    spacing: dp(8)
-                    MDRaisedButton:
-                        text: "+ Create Policy Maker Account"
-                        md_bg_color: 0.25, 0.62, 0.30, 1
-                        _radius: 8
-                        size_hint_x: 1
-                        on_release: root.toggle_create_form()
-
-            # Search text field
-            MDTextField:
-                id: user_search_field
-                hint_text: "Search by name or email..."
-                icon_left: "magnify"
-                mode: "rectangle"
-                size_hint_y: None
-                height: dp(44)
-                line_color_focus: 0.25, 0.62, 0.30, 1
-                on_text: root.on_search_text_changed(self.text)
-
-            # Role filter chips bar
-            ScrollView:
-                size_hint_y: None
-                height: dp(34)
-                do_scroll_y: False
-                MDBoxLayout:
-                    id: role_filter_box
-                    orientation: "horizontal"
-                    spacing: dp(6)
-                    size_hint_x: None
-                    width: self.minimum_width
-
-            # Create User Card Form (Collapsible)
-            MDCard:
-                id: create_user_card
+            MDBoxLayout:
+                id: users_tab_content
                 orientation: "vertical"
+                spacing: dp(8)
                 size_hint_y: None
-                height: 0
-                opacity: 0
-                padding: dp(10)
-                spacing: dp(6)
-                radius: [12, 12, 12, 12]
-                md_bg_color: (1, 1, 1, 1)
-                elevation: 2
+                height: self.minimum_height
+                padding: 0, 0, 0, dp(12)
 
-                MDLabel:
-                    id: create_form_title
-                    text: "Create Policy Maker Account"
-                    bold: True
-                    font_style: "Subtitle2"
-                    theme_text_color: "Custom"
-                    text_color: 0.25, 0.62, 0.30, 1
+                # Create policymaker button
+                MDCard:
                     size_hint_y: None
-                    height: dp(22)
+                    height: dp(48)
+                    padding: dp(6)
+                    radius: [10, 10, 10, 10]
+                    md_bg_color: 0.25, 0.62, 0.30, 0.12
+                    elevation: 0
+                    MDBoxLayout:
+                        spacing: dp(8)
+                        MDRaisedButton:
+                            text: "+ Create Policy Maker Account"
+                            md_bg_color: 0.25, 0.62, 0.30, 1
+                            _radius: 8
+                            size_hint_x: 1
+                            on_release: root.toggle_create_form()
 
-                MDBoxLayout:
-                    spacing: dp(6)
-                    size_hint_y: None
-                    height: dp(44)
-                    MDTextField:
-                        id: new_first_name
-                        hint_text: "First name"
-                        mode: "rectangle"
-                    MDTextField:
-                        id: new_last_name
-                        hint_text: "Last name"
-                        mode: "rectangle"
-
+                # Search text field
                 MDTextField:
-                    id: new_email
-                    hint_text: "Email address"
-                    icon_left: "email-outline"
+                    id: user_search_field
+                    hint_text: "Search by name or email..."
+                    icon_left: "magnify"
                     mode: "rectangle"
                     size_hint_y: None
                     height: dp(44)
+                    line_color_focus: 0.25, 0.62, 0.30, 1
+                    on_text: root.on_search_text_changed(self.text)
 
-                MDTextField:
-                    id: new_password
-                    hint_text: "Password"
-                    icon_left: "lock-outline"
-                    password: True
-                    mode: "rectangle"
+                # Role filter chips bar
+                ScrollView:
                     size_hint_y: None
-                    height: dp(44)
+                    height: dp(34)
+                    do_scroll_y: False
+                    MDBoxLayout:
+                        id: role_filter_box
+                        orientation: "horizontal"
+                        spacing: dp(6)
+                        size_hint_x: None
+                        width: self.minimum_width
 
-                MDBoxLayout:
+                # Create User Form (Collapsible)
+                MDCard:
+                    id: create_user_card
+                    orientation: "vertical"
+                    size_hint_y: None
+                    height: 0
+                    opacity: 0
+                    padding: dp(10)
                     spacing: dp(6)
-                    size_hint_y: None
-                    height: dp(40)
+                    radius: [12, 12, 12, 12]
+                    md_bg_color: 1, 1, 1, 1
+                    elevation: 2
 
-                    MDRaisedButton:
-                        id: new_role_btn
-                        text: "Role: Policymaker ▾"
-                        md_bg_color: 0.9, 0.95, 0.9, 1
-                        text_color: 0.1, 0.1, 0.1, 1
-                        size_hint_x: 0.5
-                        _radius: 8
-                        on_release: root.open_create_role_menu()
-
-                    MDRaisedButton:
-                        id: new_region_btn
-                        text: "Select District ▾"
-                        md_bg_color: 0.9, 0.95, 0.9, 1
-                        text_color: 0.1, 0.1, 0.1, 1
-                        size_hint_x: 0.5
-                        _radius: 8
-                        on_release: root.open_create_region_menu()
-
-                MDLabel:
-                    id: create_user_error
-                    text: ""
-                    theme_text_color: "Custom"
-                    text_color: 0.85, 0.18, 0.18, 1
-                    font_style: "Caption"
-                    size_hint_y: None
-                    height: self.texture_size[1] if self.text else 0
-
-                MDBoxLayout:
-                    spacing: dp(6)
-                    size_hint_y: None
-                    height: dp(38)
-                    MDRaisedButton:
-                        text: "CREATE ACCOUNT"
-                        md_bg_color: 0.25, 0.62, 0.30, 1
-                        size_hint_x: 0.6
-                        _radius: 8
-                        on_release: root.submit_new_user()
-                    MDFlatButton:
-                        text: "Cancel"
+                    MDLabel:
+                        id: create_form_title
+                        text: "Create Policy Maker Account"
+                        bold: True
+                        font_style: "Subtitle2"
                         theme_text_color: "Custom"
-                        text_color: 0.5, 0.5, 0.5, 1
-                        size_hint_x: 0.4
-                        on_release: root.close_create_form()
+                        text_color: 0.25, 0.62, 0.30, 1
+                        size_hint_y: None
+                        height: dp(22)
 
-            # Accounts List ScrollView
-            ScrollView:
+                    MDBoxLayout:
+                        spacing: dp(6)
+                        size_hint_y: None
+                        height: dp(44)
+                        MDTextField:
+                            id: new_first_name
+                            hint_text: "First name"
+                            mode: "rectangle"
+                        MDTextField:
+                            id: new_last_name
+                            hint_text: "Last name"
+                            mode: "rectangle"
+
+                    MDTextField:
+                        id: new_email
+                        hint_text: "Email address"
+                        icon_left: "email-outline"
+                        mode: "rectangle"
+                        size_hint_y: None
+                        height: dp(44)
+
+                    MDTextField:
+                        id: new_password
+                        hint_text: "Password"
+                        icon_left: "lock-outline"
+                        password: True
+                        mode: "rectangle"
+                        size_hint_y: None
+                        height: dp(44)
+
+                    MDBoxLayout:
+                        spacing: dp(6)
+                        size_hint_y: None
+                        height: dp(40)
+
+                        MDRaisedButton:
+                            id: new_role_btn
+                            text: "Role: Policymaker ▾"
+                            md_bg_color: 0.9, 0.95, 0.9, 1
+                            text_color: 0.1, 0.1, 0.1, 1
+                            size_hint_x: 0.5
+                            _radius: 8
+                            on_release: root.open_create_role_menu()
+
+                        MDRaisedButton:
+                            id: new_region_btn
+                            text: "Select District ▾"
+                            md_bg_color: 0.9, 0.95, 0.9, 1
+                            text_color: 0.1, 0.1, 0.1, 1
+                            size_hint_x: 0.5
+                            _radius: 8
+                            on_release: root.open_create_region_menu()
+
+                    MDLabel:
+                        id: create_user_error
+                        text: ""
+                        theme_text_color: "Custom"
+                        text_color: 0.85, 0.18, 0.18, 1
+                        font_style: "Caption"
+                        size_hint_y: None
+                        height: self.texture_size[1] if self.text else 0
+
+                    MDBoxLayout:
+                        spacing: dp(6)
+                        size_hint_y: None
+                        height: dp(38)
+                        MDRaisedButton:
+                            text: "CREATE ACCOUNT"
+                            md_bg_color: 0.25, 0.62, 0.30, 1
+                            size_hint_x: 0.6
+                            _radius: 8
+                            on_release: root.submit_new_user()
+                        MDFlatButton:
+                            text: "Cancel"
+                            theme_text_color: "Custom"
+                            text_color: 0.5, 0.5, 0.5, 1
+                            size_hint_x: 0.4
+                            on_release: root.close_create_form()
+
+                # User cards list
                 MDBoxLayout:
                     id: users_list_box
                     orientation: "vertical"
@@ -235,33 +249,41 @@ KV = """
                     size_hint_y: None
                     height: self.minimum_height
 
-        # ── TAB 2: FEEDBACK VIEW ──────────────────────────────────────────
-        MDBoxLayout:
-            id: feedback_tab_content
-            orientation: "vertical"
-            spacing: dp(8)
-            size_hint_y: None
-            height: 0
+        # ── TAB 2: FEEDBACK — scrollable ──────────────────────────────
+        MDScrollView:
+            id: feedback_scroll
+            do_scroll_y: True
+            do_scroll_x: False
+            bar_width: 2
+            bar_color: 0.25, 0.62, 0.30, 0.6
             opacity: 0
+            size_hint_y: 0
 
-            MDCard:
-                id: summary_card
-                orientation: "horizontal"
-                padding: dp(14)
+            MDBoxLayout:
+                id: feedback_tab_content
+                orientation: "vertical"
+                spacing: dp(8)
                 size_hint_y: None
-                height: dp(54)
-                radius: [12, 12, 12, 12]
-                md_bg_color: 0.933, 0.965, 0.933, 1
-                elevation: 0
+                height: self.minimum_height
+                padding: 0, 0, 0, dp(12)
 
-                MDLabel:
-                    id: avg_rating_label
-                    text: "No ratings yet"
-                    theme_text_color: "Custom"
-                    text_color: 0.1, 0.1, 0.1, 1
-                    bold: True
+                MDCard:
+                    id: summary_card
+                    orientation: "horizontal"
+                    padding: dp(14)
+                    size_hint_y: None
+                    height: dp(54)
+                    radius: [12, 12, 12, 12]
+                    md_bg_color: 0.933, 0.965, 0.933, 1
+                    elevation: 0
 
-            ScrollView:
+                    MDLabel:
+                        id: avg_rating_label
+                        text: "No ratings yet"
+                        theme_text_color: "Custom"
+                        text_color: 0.1, 0.1, 0.1, 1
+                        bold: True
+
                 MDBoxLayout:
                     id: feedback_box
                     orientation: "vertical"
@@ -312,6 +334,8 @@ class AdminDashboardScreen(Screen):
         self._setup_role_filter_chips()
         self.load_users()
         self.load_feedback()
+        # Always start on users tab
+        self.switch_tab("users")
 
     def switch_tab(self, tab_name):
         self.current_tab = tab_name
@@ -321,26 +345,20 @@ class AdminDashboardScreen(Screen):
             self.ids.tab_feedback_btn.md_bg_color = (0.9, 0.94, 0.9, 1)
             self.ids.tab_feedback_btn.text_color = (0.2, 0.4, 0.2, 1)
 
-            self.ids.users_tab_content.size_hint_y = 1
-            self.ids.users_tab_content.opacity = 1
-            self.ids.users_tab_content.height = self.ids.users_tab_content.minimum_height
-            self.ids.feedback_tab_content.size_hint_y = 0
-            self.ids.feedback_tab_content.height = 0
-            self.ids.feedback_tab_content.opacity = 0
-            self.load_users()
+            self.ids.users_scroll.size_hint_y = 1
+            self.ids.users_scroll.opacity = 1
+            self.ids.feedback_scroll.size_hint_y = 0
+            self.ids.feedback_scroll.opacity = 0
         else:
             self.ids.tab_feedback_btn.md_bg_color = (0.25, 0.62, 0.30, 1)
             self.ids.tab_feedback_btn.text_color = (1, 1, 1, 1)
             self.ids.tab_users_btn.md_bg_color = (0.9, 0.94, 0.9, 1)
             self.ids.tab_users_btn.text_color = (0.2, 0.4, 0.2, 1)
 
-            self.ids.users_tab_content.size_hint_y = 0
-            self.ids.users_tab_content.height = 0
-            self.ids.users_tab_content.opacity = 0
-            self.ids.feedback_tab_content.size_hint_y = 1
-            self.ids.feedback_tab_content.height = self.ids.feedback_tab_content.minimum_height
-            self.ids.feedback_tab_content.opacity = 1
-            self.load_feedback()
+            self.ids.users_scroll.size_hint_y = 0
+            self.ids.users_scroll.opacity = 0
+            self.ids.feedback_scroll.size_hint_y = 1
+            self.ids.feedback_scroll.opacity = 1
 
     # ── ROLE FILTER CHIPS ─────────────────────────────────────────────────────
     def _setup_role_filter_chips(self):
@@ -601,7 +619,8 @@ class AdminDashboardScreen(Screen):
         self.create_form_open = True
         card = self.ids.create_user_card
         card.opacity = 1
-        card.height = max(dp(290), card.minimum_height)
+        # Target height: title(22) + name row(44) + email(44) + pass(44) + role row(40) + error(0) + btns(38) + padding(20) + spacing(36)
+        card.height = dp(300)
         bounce_scale(card)
         self.regions = get_all_regions()
 
@@ -615,6 +634,11 @@ class AdminDashboardScreen(Screen):
         self.new_user_region_id = None
         self.ids.new_role_btn.text = "Role: Policymaker ▾"
         self.ids.new_region_btn.text = "Select District ▾"
+        # Also clear text fields
+        self.ids.new_first_name.text = ""
+        self.ids.new_last_name.text = ""
+        self.ids.new_email.text = ""
+        self.ids.new_password.text = ""
 
     def open_create_role_menu(self):
         items = [
@@ -687,11 +711,6 @@ class AdminDashboardScreen(Screen):
             return
 
         show_snackbar(msg)
-        # Clear fields & close form
-        self.ids.new_first_name.text = ""
-        self.ids.new_last_name.text = ""
-        self.ids.new_email.text = ""
-        self.ids.new_password.text = ""
         self.close_create_form()
         self.load_users()
 
@@ -707,16 +726,26 @@ class AdminDashboardScreen(Screen):
         box.clear_widgets()
         items = get_all_feedback_for_admin()
         if not items:
-            box.add_widget(MDLabel(text="No feedback submitted yet.",
-                                     theme_text_color="Custom", text_color=(0.42, 0.42, 0.42, 1)))
+            box.add_widget(MDLabel(
+                text="No feedback submitted yet.",
+                theme_text_color="Custom",
+                text_color=(0.42, 0.42, 0.42, 1),
+                size_hint_y=None,
+                height=dp(60)
+            ))
             return
         cards = []
         for f in items:
             reviewed = f["status"] == "reviewed"
-            card = MDCard(orientation="vertical", padding=dp(12), spacing=dp(6),
-                            size_hint_y=None, radius=[12, 12, 12, 12],
-                            md_bg_color=(1, 1, 1, 1) if reviewed else (0.933, 0.965, 0.933, 1),
-                            elevation=0 if reviewed else 1)
+            card = MDCard(
+                orientation="vertical",
+                padding=dp(12),
+                spacing=dp(6),
+                size_hint_y=None,
+                radius=[12, 12, 12, 12],
+                md_bg_color=(1, 1, 1, 1) if reviewed else (0.933, 0.965, 0.933, 1),
+                elevation=0 if reviewed else 1
+            )
             card.bind(minimum_height=card.setter("height"))
 
             rating_row = MDBoxLayout(size_hint_y=None, height=dp(24), spacing=dp(6))
@@ -749,9 +778,12 @@ class AdminDashboardScreen(Screen):
             card.add_widget(meta)
 
             if not reviewed:
-                btn = MDFlatButton(text="Mark reviewed", theme_text_color="Custom",
-                                     text_color=(0.25, 0.62, 0.30, 1),
-                                     on_release=lambda x, fid=f["id"]: self.mark_reviewed(fid))
+                btn = MDFlatButton(
+                    text="Mark reviewed",
+                    theme_text_color="Custom",
+                    text_color=(0.25, 0.62, 0.30, 1),
+                    on_release=lambda x, fid=f["id"]: self.mark_reviewed(fid)
+                )
                 card.add_widget(btn)
 
             box.add_widget(card)
