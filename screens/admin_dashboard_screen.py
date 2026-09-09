@@ -1,5 +1,9 @@
 """
-Admin Dashboard Screen – Clean, Robust, Professional Design.
+Admin Dashboard Screen – Clean, Robust User Management Interface.
+Allows Admin to:
+1. View, search, and filter all registered accounts by role.
+2. Toggle active/suspended status, change roles, or delete users.
+3. Quick navigate to dedicated "Create User Account" and "Ratings & Feedback" screens.
 """
 from kivy.lang import Builder
 from kivy.uix.screenmanager import Screen
@@ -15,11 +19,10 @@ from utils.layout_helpers import show_snackbar
 
 from database.data_service import (
     get_all_users_for_admin, toggle_user_status_by_admin, update_user_role_by_admin,
-    delete_user_by_admin, get_all_regions, get_average_rating
+    delete_user_by_admin, get_average_rating
 )
-from database.auth_service import admin_create_user, ALL_ROLES
-from utils.validators import is_valid_email_format, is_password_acceptable
-from utils.animations import stagger_fade_in, bounce_scale
+from database.auth_service import ALL_ROLES
+from utils.animations import stagger_fade_in
 
 KV = """
 <AdminDashboardScreen>:
@@ -60,23 +63,32 @@ KV = """
                 text_color: 0.12, 0.12, 0.12, 1
 
             MDIconButton:
+                icon: "account-plus"
+                theme_text_color: "Custom"
+                text_color: 0.20, 0.55, 0.28, 1
+                tooltip_text: "Create User"
+                on_release: root.go_to_create_user()
+
+            MDIconButton:
                 icon: "comment-text-outline"
                 theme_text_color: "Custom"
                 text_color: 0.20, 0.55, 0.28, 1
+                tooltip_text: "Feedback & Reviews"
                 on_release: root.go_to_feedback()
 
             MDIconButton:
                 icon: "logout"
                 theme_text_color: "Custom"
                 text_color: 0.78, 0.18, 0.18, 1
+                tooltip_text: "Logout"
                 on_release: root.logout()
 
-        # ── STATS & NAVIGATION BANNER ───────────────────────────────────
+        # ── STATS & ACTIONS BANNER ──────────────────────────────────────
         MDBoxLayout:
             size_hint_y: None
-            height: dp(68)
-            padding: dp(14), dp(10), dp(14), dp(10)
-            spacing: dp(10)
+            height: dp(72)
+            padding: dp(14), dp(8), dp(14), dp(8)
+            spacing: dp(8)
             canvas.before:
                 Color:
                     rgba: 0.20, 0.55, 0.28, 1
@@ -88,13 +100,17 @@ KV = """
             MDBoxLayout:
                 orientation: "vertical"
                 spacing: dp(2)
+                size_hint_x: 0.48
+                pos_hint: {"center_y": 0.5}
+
                 MDLabel:
                     id: user_count_label
-                    text: "Loading users..."
+                    text: "Loading..."
                     font_style: "Subtitle1"
                     bold: True
                     theme_text_color: "Custom"
                     text_color: 1, 1, 1, 1
+
                 MDLabel:
                     id: avg_rating_banner
                     text: ""
@@ -102,19 +118,36 @@ KV = """
                     theme_text_color: "Custom"
                     text_color: 0.82, 0.94, 0.84, 1
 
-            # Right: Feedback navigation button
-            MDRaisedButton:
-                id: feedback_nav_btn
-                text: "Feedback"
-                size_hint: None, None
-                size: dp(105), dp(36)
-                _radius: 8
-                elevation: 0
-                md_bg_color: 1, 1, 1, 0.22
-                text_color: 1, 1, 1, 1
-                on_release: root.go_to_feedback()
+            # Right: Action Buttons
+            MDBoxLayout:
+                orientation: "horizontal"
+                spacing: dp(6)
+                size_hint_x: 0.52
+                pos_hint: {"center_y": 0.5}
 
-        # ── SEARCH + ADD ACTION ROW ─────────────────────────────────────
+                MDRaisedButton:
+                    id: create_user_nav_btn
+                    text: "+ New User"
+                    size_hint: None, None
+                    size: dp(94), dp(36)
+                    _radius: 8
+                    elevation: 0
+                    md_bg_color: 1, 1, 1, 0.25
+                    text_color: 1, 1, 1, 1
+                    on_release: root.go_to_create_user()
+
+                MDRaisedButton:
+                    id: feedback_nav_btn
+                    text: "Feedback"
+                    size_hint: None, None
+                    size: dp(86), dp(36)
+                    _radius: 8
+                    elevation: 0
+                    md_bg_color: 1, 1, 1, 0.20
+                    text_color: 1, 1, 1, 1
+                    on_release: root.go_to_feedback()
+
+        # ── SEARCH + ACTION ROW ─────────────────────────────────────────
         MDBoxLayout:
             size_hint_y: None
             height: dp(54)
@@ -136,15 +169,14 @@ KV = """
                 on_text: root.on_search_text_changed(self.text)
 
             MDRaisedButton:
-                id: create_btn
-                text: "+ Add"
+                text: "+ Create"
                 md_bg_color: 0.20, 0.55, 0.28, 1
                 text_color: 1, 1, 1, 1
                 _radius: 8
                 size_hint_x: None
-                width: dp(70)
+                width: dp(82)
                 elevation: 0
-                on_release: root.toggle_create_form()
+                on_release: root.go_to_create_user()
 
         # ── ROLE FILTER CHIPS ───────────────────────────────────────────
         ScrollView:
@@ -178,119 +210,6 @@ KV = """
                 height: self.minimum_height
                 spacing: dp(0)
 
-                # Collapsible Create Form
-                MDCard:
-                    id: create_user_card
-                    orientation: "vertical"
-                    size_hint_y: None
-                    height: 0
-                    opacity: 0
-                    padding: dp(14), dp(12), dp(14), dp(14)
-                    spacing: dp(8)
-                    radius: [0, 0, 0, 0]
-                    md_bg_color: 1, 1, 1, 1
-                    elevation: 2
-
-                    MDLabel:
-                        text: "Create New Account"
-                        bold: True
-                        font_style: "Subtitle1"
-                        theme_text_color: "Custom"
-                        text_color: 0.20, 0.55, 0.28, 1
-                        size_hint_y: None
-                        height: dp(26)
-
-                    MDBoxLayout:
-                        spacing: dp(8)
-                        size_hint_y: None
-                        height: dp(48)
-                        MDTextField:
-                            id: new_first_name
-                            hint_text: "First name"
-                            mode: "rectangle"
-                        MDTextField:
-                            id: new_last_name
-                            hint_text: "Last name"
-                            mode: "rectangle"
-
-                    MDTextField:
-                        id: new_email
-                        hint_text: "Email address"
-                        icon_left: "email-outline"
-                        mode: "rectangle"
-                        size_hint_y: None
-                        height: dp(48)
-
-                    MDTextField:
-                        id: new_password
-                        hint_text: "Password"
-                        icon_left: "lock-outline"
-                        password: True
-                        mode: "rectangle"
-                        size_hint_y: None
-                        height: dp(48)
-
-                    MDBoxLayout:
-                        spacing: dp(8)
-                        size_hint_y: None
-                        height: dp(44)
-                        MDRaisedButton:
-                            id: new_role_btn
-                            text: "Role: Policymaker"
-                            md_bg_color: 0.93, 0.96, 0.93, 1
-                            text_color: 0.15, 0.15, 0.15, 1
-                            size_hint_x: 0.5
-                            _radius: 8
-                            elevation: 0
-                            on_release: root.open_create_role_menu()
-                        MDRaisedButton:
-                            id: new_region_btn
-                            text: "Select District"
-                            md_bg_color: 0.93, 0.96, 0.93, 1
-                            text_color: 0.15, 0.15, 0.15, 1
-                            size_hint_x: 0.5
-                            _radius: 8
-                            elevation: 0
-                            on_release: root.open_create_region_menu()
-
-                    MDLabel:
-                        id: create_user_error
-                        text: ""
-                        theme_text_color: "Custom"
-                        text_color: 0.82, 0.15, 0.15, 1
-                        font_style: "Caption"
-                        size_hint_y: None
-                        height: self.texture_size[1] if self.text else 0
-
-                    MDBoxLayout:
-                        spacing: dp(8)
-                        size_hint_y: None
-                        height: dp(40)
-                        MDRaisedButton:
-                            text: "CREATE ACCOUNT"
-                            md_bg_color: 0.20, 0.55, 0.28, 1
-                            text_color: 1, 1, 1, 1
-                            size_hint_x: 0.65
-                            _radius: 8
-                            elevation: 0
-                            on_release: root.submit_new_user()
-                        MDFlatButton:
-                            text: "Cancel"
-                            theme_text_color: "Custom"
-                            text_color: 0.5, 0.5, 0.5, 1
-                            size_hint_x: 0.35
-                            on_release: root.close_create_form()
-
-                    MDBoxLayout:
-                        size_hint_y: None
-                        height: dp(1)
-                        canvas.before:
-                            Color:
-                                rgba: 0.88, 0.88, 0.88, 1
-                            Rectangle:
-                                pos: self.pos
-                                size: self.size
-
                 # Section header
                 MDBoxLayout:
                     size_hint_y: None
@@ -309,8 +228,8 @@ KV = """
                 MDBoxLayout:
                     id: users_list_box
                     orientation: "vertical"
-                    spacing: dp(6)
-                    padding: dp(10), 0, dp(10), dp(16)
+                    spacing: dp(8)
+                    padding: dp(10), 0, dp(10), dp(24)
                     size_hint_y: None
                     height: self.minimum_height
 """
@@ -329,9 +248,6 @@ ROLE_META = {
 class AdminDashboardScreen(Screen):
     selected_role_filter = "all"
     search_query = ""
-    new_user_role = "policymaker"
-    new_user_region_id = None
-    create_form_open = False
     dialog = None
 
     def on_pre_enter(self, *args):
@@ -349,17 +265,26 @@ class AdminDashboardScreen(Screen):
     def _update_banner(self):
         try:
             users = get_all_users_for_admin()
-            self.ids.user_count_label.text = f"{len(users)} registered users"
+            self.ids.user_count_label.text = f"{len(users)} Users"
         except Exception:
-            self.ids.user_count_label.text = "User accounts"
+            self.ids.user_count_label.text = "User Accounts"
         try:
             avg, count = get_average_rating()
             if avg and count:
-                self.ids.avg_rating_banner.text = f"Avg rating  {avg}/5  from {count} reviews"
+                self.ids.avg_rating_banner.text = f"Avg {avg}/5 ({count} rev)"
             else:
                 self.ids.avg_rating_banner.text = "No ratings yet"
         except Exception:
             self.ids.avg_rating_banner.text = ""
+
+    def go_to_create_user(self):
+        try:
+            if self.manager:
+                self.manager.transition.direction = "left"
+                self.manager.current = "admin_create_user"
+        except Exception as e:
+            print(f"[Admin] go_to_create_user error: {e}")
+            show_snackbar(f"Navigation error: {e}")
 
     def go_to_feedback(self):
         try:
@@ -444,7 +369,7 @@ class AdminDashboardScreen(Screen):
             card = self._build_user_card(u)
             box.add_widget(card)
             cards.append(card)
-        stagger_fade_in(cards, step=0.04, duration=0.22)
+        stagger_fade_in(cards, step=0.03, duration=0.20)
 
     def _build_user_card(self, u):
         role_key   = u.get("user_type", "").lower()
@@ -453,10 +378,10 @@ class AdminDashboardScreen(Screen):
 
         card = MDCard(
             orientation="vertical",
-            padding=dp(12),
-            spacing=dp(6),
+            padding=[dp(14), dp(12), dp(14), dp(12)],
+            spacing=dp(8),
             size_hint_y=None,
-            height=dp(128),
+            height=dp(132),
             radius=[10, 10, 10, 10],
             md_bg_color=(1, 1, 1, 1),
             elevation=1
@@ -469,15 +394,17 @@ class AdminDashboardScreen(Screen):
             bold=True,
             font_style="Subtitle2",
             theme_text_color="Custom",
-            text_color=(0.10, 0.10, 0.10, 1)
+            text_color=(0.10, 0.10, 0.10, 1),
+            pos_hint={"center_y": 0.5}
         )
         role_pill = MDCard(
-            size_hint=(None, None), size=(dp(56), dp(20)),
+            size_hint=(None, None), size=(dp(58), dp(22)),
             radius=[5, 5, 5, 5], elevation=0,
-            md_bg_color=meta["color"], padding=[dp(4), dp(2), dp(4), dp(2)]
+            md_bg_color=meta["color"], padding=[dp(4), dp(2), dp(4), dp(2)],
+            pos_hint={"center_y": 0.5}
         )
         role_pill.add_widget(MDLabel(
-            text=meta["label"], halign="center",
+            text=meta["label"], halign="center", valign="center",
             font_style="Caption", bold=True,
             theme_text_color="Custom", text_color=(1, 1, 1, 1)
         ))
@@ -485,13 +412,14 @@ class AdminDashboardScreen(Screen):
         status_color = (0.15, 0.60, 0.25, 1) if is_active else (0.78, 0.18, 0.18, 1)
         status_bg    = (0.88, 0.97, 0.89, 1) if is_active else (0.98, 0.88, 0.88, 1)
         status_pill  = MDCard(
-            size_hint=(None, None), size=(dp(72), dp(20)),
+            size_hint=(None, None), size=(dp(72), dp(22)),
             radius=[5, 5, 5, 5], elevation=0,
-            md_bg_color=status_bg, padding=[dp(4), dp(2), dp(4), dp(2)]
+            md_bg_color=status_bg, padding=[dp(4), dp(2), dp(4), dp(2)],
+            pos_hint={"center_y": 0.5}
         )
         status_pill.add_widget(MDLabel(
             text="Active" if is_active else "Suspended",
-            halign="center", font_style="Caption", bold=True,
+            halign="center", valign="center", font_style="Caption", bold=True,
             theme_text_color="Custom", text_color=status_color
         ))
 
@@ -611,98 +539,3 @@ class AdminDashboardScreen(Screen):
         if ok:
             self.load_users()
             self._update_banner()
-
-    def toggle_create_form(self):
-        if self.create_form_open:
-            self.close_create_form()
-        else:
-            self.open_create_form()
-
-    def open_create_form(self):
-        self.create_form_open = True
-        self.ids.create_btn.text = "Close"
-        card = self.ids.create_user_card
-        card.opacity = 1
-        card.height  = dp(330)
-        bounce_scale(card)
-        self.regions = get_all_regions()
-
-    def close_create_form(self):
-        self.create_form_open = False
-        self.ids.create_btn.text = "+ Add"
-        card = self.ids.create_user_card
-        card.height  = 0
-        card.opacity = 0
-        self.ids.create_user_error.text = ""
-        self.new_user_role      = "policymaker"
-        self.new_user_region_id = None
-        self.ids.new_role_btn.text   = "Role: Policymaker"
-        self.ids.new_region_btn.text = "Select District"
-        for fid in ("new_first_name", "new_last_name", "new_email", "new_password"):
-            self.ids[fid].text = ""
-
-    def open_create_role_menu(self):
-        items = [
-            {"text": r.capitalize(), "viewclass": "OneLineListItem",
-             "on_release": lambda *_, r=r: self.pick_create_role(r)}
-            for r in ALL_ROLES
-        ]
-        self.create_role_menu = MDDropdownMenu(
-            caller=self.ids.new_role_btn, items=items, width_mult=3)
-        self.create_role_menu.open()
-
-    def pick_create_role(self, role):
-        self.new_user_role = role
-        self.ids.new_role_btn.text = f"Role: {role.capitalize()}"
-        if hasattr(self, "create_role_menu"):
-            self.create_role_menu.dismiss()
-
-    def open_create_region_menu(self):
-        if not hasattr(self, "regions") or not self.regions:
-            self.regions = get_all_regions()
-        items = [
-            {"text": district, "viewclass": "OneLineListItem",
-             "on_release": lambda *_, rid=rid, d=district: self.pick_create_region(rid, d)}
-            for rid, name, district in self.regions
-        ]
-        self.create_region_menu = MDDropdownMenu(
-            caller=self.ids.new_region_btn, items=items, width_mult=3)
-        self.create_region_menu.open()
-
-    def pick_create_region(self, region_id, district):
-        self.new_user_region_id  = region_id
-        self.ids.new_region_btn.text = f"District: {district}"
-        if hasattr(self, "create_region_menu"):
-            self.create_region_menu.dismiss()
-
-    def submit_new_user(self):
-        self.ids.create_user_error.text = ""
-        fn       = self.ids.new_first_name.text.strip()
-        ln       = self.ids.new_last_name.text.strip()
-        email    = self.ids.new_email.text.strip()
-        password = self.ids.new_password.text
-
-        if not all([fn, ln, email, password, self.new_user_region_id]):
-            self.ids.create_user_error.text = "Please fill in all fields and select a district."
-            return
-        if not is_valid_email_format(email):
-            self.ids.create_user_error.text = "Enter a valid email address."
-            return
-        if not is_password_acceptable(password):
-            self.ids.create_user_error.text = "Password too weak (min 8 chars, UPPER, number & symbol)."
-            return
-
-        ok, msg = admin_create_user(
-            email=email, password=password,
-            first_name=fn, last_name=ln,
-            user_type=self.new_user_role,
-            region_id=self.new_user_region_id
-        )
-        if not ok:
-            self.ids.create_user_error.text = msg
-            return
-
-        show_snackbar(msg)
-        self.close_create_form()
-        self.load_users()
-        self._update_banner()
