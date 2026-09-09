@@ -7,13 +7,14 @@ Dashboard screen – full interactive overhaul.
 • History: pill toggle switch + chip crop selector
 • Profile: avatar circle with initials, bounce-scale buttons
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import threading
 from kivy.lang import Builder
 from kivy.uix.screenmanager import Screen
 from kivy.metrics import dp
 from kivy.animation import Animation
 from kivy.clock import Clock
+from kivymd.uix.pickers import MDDatePicker
 from database.data_service import (
     get_market_summary, get_recommendations_for_user, get_alerts_for_user,
     mark_alert_read, get_all_crops, get_price_history, get_production_history,
@@ -21,7 +22,9 @@ from database.data_service import (
     get_latest_prices_for_crops, get_lag_features_for_crops, get_current_weather,
     save_ml_alert, save_ml_recommendation, get_last_ml_run_time,
     clear_old_ml_data, get_crop_name_to_id_map, get_region_district,
+    get_price_by_date, get_production_by_date, get_latest_record_date,
 )
+from utils.ml_engine import predict_price, predict_production
 from utils.animations import (
     fade_in, stagger_fade_in, bounce_scale, ripple_flash,
     pulse_color, fade_out_remove,
@@ -220,6 +223,8 @@ class DashboardScreen(Screen):
     history_crop_id = None
     history_crop_name = None
     _history_chip_widgets = {}   # crop_id -> chip card
+    history_selected_date = None
+    history_selected_date_str = None
 
     _ml_predictions_cache = None   # cached ML predictions dict
     _ml_running = False            # guard against parallel ML runs
@@ -2223,16 +2228,235 @@ class DashboardScreen(Screen):
         self.ids.pill_prod_btn.text_color = prod_txt
         self.load_history()
 
+    def open_history_date_picker(self):
+        try:
+            picker = MDDatePicker()
+            picker.bind(on_save=self._on_history_date_picked)
+            picker.open()
+        except Exception as e:
+            print(f"[DashboardScreen] DatePicker error: {e}")
+
+    def _on_history_date_picked(self, instance, value, date_range):
+        self.history_selected_date = value
+        self.history_selected_date_str = value.strftime("%d %b %Y")
+        self.load_history()
+
+    def open_price_history_screen(self):
+        if self.manager and "price_history" in self.manager.screen_names:
+            self.manager.transition.direction = "left"
+            scr = self.manager.get_screen("price_history")
+            scr.selected_crop_id = self.history_crop_id
+            scr.selected_crop_name = self.history_crop_name
+            if self.history_selected_date:
+                scr.selected_date = self.history_selected_date
+                scr.selected_date_str = self.history_selected_date_str
+            self.manager.current = "price_history"
+            scr.load_data()
+
     def load_history(self):
         from utils.chart_utils import build_line_chart, build_bar_chart
         from kivymd.uix.label import MDLabel
+        from kivymd.uix.card import MDCard
+        from kivymd.uix.boxlayout import MDBoxLayout
+        from kivymd.uix.button import MDRaisedButton, MDIconButton, MDFlatButton
 
         box = self.ids.history_box
         box.clear_widgets()
         if not self.history_crop_id:
             return
 
-        region_id = self.user.get("region_id")
+        region_id = self.user.get("region_id") if self.user else None
+
+        # 1. Date Inspector & Next-Week Forecast Card
+        if not self.history_selected_date:
+            latest_dt = get_latest_record_date(self.history_crop_id) or date.today()
+            self.history_selected_date = latest_dt
+            self.history_selected_date_str = latest_dt.strftime("%d %b %Y")
+
+        actual_price = get_price_by_date(self.history_crop_id, self.history_selected_date, region_id=region_id)
+        actual_prod = get_production_by_date(self.history_crop_id, self.history_selected_date, region_id=region_id)
+
+        district = (get_region_district(region_id) if region_id else None) or "Kandy"
+        curr_p = actual_price if actual_price is not None else 200.0
+        pred_price = predict_price(crop=self.history_crop_name, district=district, current_price=curr_p)
+        pred_prod = predict_production(vegetable=self.history_crop_name, district=district)
+
+        inspect_card = MDCard(
+            orientation="vertical",
+            size_hint_y=None,
+            radius=[16, 16, 16, 16],
+            elevation=1,
+            padding=dp(14),
+            spacing=dp(10),
+            md_bg_color=(1, 1, 1, 1),
+        )
+        inspect_card.bind(minimum_height=inspect_card.setter("height"))
+
+        # Header Row
+        hdr = MDBoxLayout(orientation="horizontal", size_hint_y=None, height=dp(36), spacing=dp(6))
+        hdr_icon = MDIconButton(
+            icon="calendar-search",
+            theme_text_color="Custom",
+            text_color=(0.22, 0.55, 0.25, 1),
+            size_hint=(None, None),
+            size=(dp(32), dp(32)),
+            pos_hint={"center_y": 0.5},
+        )
+        hdr_lbl = MDLabel(
+            text="Date Search & Forecast",
+            font_style="Subtitle1",
+            bold=True,
+            theme_text_color="Custom",
+            text_color=(0.15, 0.40, 0.18, 1),
+            pos_hint={"center_y": 0.5},
+        )
+        pick_btn = MDRaisedButton(
+            text="Pick Date",
+            elevation=0,
+            _radius=12,
+            size_hint=(None, None),
+            height=dp(32),
+            md_bg_color=(0.90, 0.95, 0.90, 1),
+            text_color=(0.15, 0.45, 0.20, 1),
+            pos_hint={"center_y": 0.5},
+            on_release=lambda *args: self.open_history_date_picker(),
+        )
+        hdr.add_widget(hdr_icon)
+        hdr.add_widget(hdr_lbl)
+        hdr.add_widget(pick_btn)
+        inspect_card.add_widget(hdr)
+
+        # Selected Date & Crop Label
+        date_lbl = MDLabel(
+            text=f"Selected Date: {self.history_selected_date_str}   •   {self.history_crop_name}",
+            font_style="Caption",
+            theme_text_color="Custom",
+            text_color=(0.45, 0.45, 0.45, 1),
+            size_hint_y=None,
+            height=dp(18),
+        )
+        inspect_card.add_widget(date_lbl)
+
+        # Actual Market Data Section
+        actual_box = MDCard(
+            orientation="vertical",
+            size_hint_y=None,
+            radius=[12, 12, 12, 12],
+            elevation=0,
+            md_bg_color=(0.94, 0.98, 0.94, 1),
+            padding=(dp(12), dp(8)),
+            spacing=dp(4),
+        )
+        actual_box.bind(minimum_height=actual_box.setter("height"))
+
+        actual_title = MDLabel(
+            text="Actual Market Records (Selected Date):",
+            font_style="Caption",
+            bold=True,
+            theme_text_color="Custom",
+            text_color=(0.20, 0.50, 0.22, 1),
+            size_hint_y=None,
+            height=dp(18),
+        )
+        actual_box.add_widget(actual_title)
+
+        p_text = f"• Actual Price: Rs. {actual_price:,.2f} / kg" if actual_price is not None else "• Actual Price: Not recorded for this date"
+        actual_p_lbl = MDLabel(
+            text=p_text,
+            font_style="Body2",
+            bold=(actual_price is not None),
+            theme_text_color="Custom",
+            text_color=(0.12, 0.35, 0.15, 1) if actual_price is not None else (0.55, 0.45, 0.35, 1),
+            size_hint_y=None,
+            height=dp(20),
+        )
+        actual_box.add_widget(actual_p_lbl)
+
+        prod_text = f"• Actual Production: {actual_prod:,.2f} kg" if actual_prod is not None else "• Actual Production: Not recorded for this date"
+        actual_prod_lbl = MDLabel(
+            text=prod_text,
+            font_style="Body2",
+            bold=(actual_prod is not None),
+            theme_text_color="Custom",
+            text_color=(0.12, 0.35, 0.15, 1) if actual_prod is not None else (0.55, 0.45, 0.35, 1),
+            size_hint_y=None,
+            height=dp(20),
+        )
+        actual_box.add_widget(actual_prod_lbl)
+        inspect_card.add_widget(actual_box)
+
+        # AI Forecast Section
+        pred_box = MDCard(
+            orientation="vertical",
+            size_hint_y=None,
+            radius=[12, 12, 12, 12],
+            elevation=0,
+            md_bg_color=(0.92, 0.96, 1.0, 1),
+            padding=(dp(12), dp(8)),
+            spacing=dp(4),
+        )
+        pred_box.bind(minimum_height=pred_box.setter("height"))
+
+        pred_title = MDLabel(
+            text=f"AI Forecast for Next Week ({district}):",
+            font_style="Caption",
+            bold=True,
+            theme_text_color="Custom",
+            text_color=(0.15, 0.35, 0.65, 1),
+            size_hint_y=None,
+            height=dp(18),
+        )
+        pred_box.add_widget(pred_title)
+
+        pred_p_text = f"• Predicted Price: Rs. {pred_price:,.2f} / kg" if pred_price is not None else "• Predicted Price: Unavailable"
+        pred_p_lbl = MDLabel(
+            text=pred_p_text,
+            font_style="Body2",
+            bold=(pred_price is not None),
+            theme_text_color="Custom",
+            text_color=(0.10, 0.28, 0.60, 1) if pred_price is not None else (0.5, 0.5, 0.5, 1),
+            size_hint_y=None,
+            height=dp(20),
+        )
+        pred_box.add_widget(pred_p_lbl)
+
+        pred_prod_text = f"• Predicted Production: {pred_prod:,.2f} kg" if pred_prod is not None else "• Predicted Production: Unavailable"
+        pred_prod_lbl = MDLabel(
+            text=pred_prod_text,
+            font_style="Body2",
+            bold=(pred_prod is not None),
+            theme_text_color="Custom",
+            text_color=(0.10, 0.28, 0.60, 1) if pred_prod is not None else (0.5, 0.5, 0.5, 1),
+            size_hint_y=None,
+            height=dp(20),
+        )
+        pred_box.add_widget(pred_prod_lbl)
+        inspect_card.add_widget(pred_box)
+
+        # Detailed View button
+        detail_btn = MDFlatButton(
+            text="Open Full Search View →",
+            theme_text_color="Custom",
+            text_color=(0.20, 0.55, 0.25, 1),
+            size_hint_x=1,
+            on_release=lambda *args: self.open_price_history_screen(),
+        )
+        inspect_card.add_widget(detail_btn)
+
+        box.add_widget(inspect_card)
+
+        # 2. Historical Trend Chart
+        trend_title = MDLabel(
+            text=f"16-Week Historical Trend ({self.history_metric.title()}):",
+            font_style="Subtitle2",
+            bold=True,
+            theme_text_color="Custom",
+            text_color=(0.25, 0.45, 0.28, 1),
+            size_hint_y=None,
+            height=dp(28),
+        )
+        box.add_widget(trend_title)
+
         if self.history_metric == "price":
             data = get_price_history(self.history_crop_id, region_id=region_id, weeks=16)
             if not data:

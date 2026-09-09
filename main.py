@@ -22,6 +22,7 @@ from screens.crop_selection_screen import CropSelectionScreen
 from screens.dashboard_screen import DashboardScreen
 from screens.admin_dashboard_screen import AdminDashboardScreen
 from screens.feedback_screen import FeedbackScreen
+from screens.price_production_history_screen import PriceProductionHistoryScreen
 
 
 class AgriSenseApp(MDApp):
@@ -64,6 +65,7 @@ class AgriSenseApp(MDApp):
         sm.add_widget(DashboardScreen(name="dashboard"))
         sm.add_widget(AdminDashboardScreen(name="admin_dashboard"))
         sm.add_widget(FeedbackScreen(name="feedback"))
+        sm.add_widget(PriceProductionHistoryScreen(name="price_history"))
         return sm
 
     def _preload_ml_models_async(self):

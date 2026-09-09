@@ -750,3 +750,72 @@ def get_region_district(region_id):
         return r.district if r else None
     finally:
         db.close()
+
+# -----------------------------------------------------------------
+# Price & Production by Date utilities
+# -----------------------------------------------------------------
+
+@db_safe(default=lambda: None)
+def get_price_by_date(crop_id, target_date, region_id=None):
+    """Return the price (float) for a specific crop on a given date.
+    Returns None if no record exists."""
+    db = get_session()
+    try:
+        q = db.query(Price).filter(Price.crop_id == crop_id, Price.date == target_date)
+        if region_id:
+            q = q.filter(Price.region_id == region_id)
+        row = q.first()
+        return float(row.price) if row else None
+    finally:
+        db.close()
+
+@db_safe(default=lambda: None)
+def get_production_by_date(crop_id, target_date, region_id=None):
+    """Return the production quantity (float) for a specific crop on a given date.
+    Returns None if no record exists."""
+    db = get_session()
+    try:
+        q = db.query(Production).filter(Production.crop_id == crop_id, Production.record_date == target_date)
+        if region_id:
+            q = q.filter(Production.region_id == region_id)
+        row = q.first()
+        return float(row.quantity) if row else None
+    finally:
+        db.close()
+
+@db_safe(default=lambda: {"price": [], "production": []})
+def get_price_production_range(crop_id, start_date, end_date, region_id=None):
+    """Return price and production data for a crop between start_date and end_date.
+    Returns dict with 'price': [(date_str, price)], 'production': [(date_str, qty)]."""
+    db = get_session()
+    try:
+        price_q = db.query(Price).filter(Price.crop_id == crop_id, Price.date >= start_date, Price.date <= end_date)
+        prod_q = db.query(Production).filter(Production.crop_id == crop_id, Production.record_date >= start_date, Production.record_date <= end_date)
+        if region_id:
+            price_q = price_q.filter(Price.region_id == region_id)
+            prod_q = prod_q.filter(Production.region_id == region_id)
+        price_rows = price_q.order_by(Price.date).all()
+        prod_rows = prod_q.order_by(Production.record_date).all()
+        price_data = [(r.date.strftime("%d %b %Y"), float(r.price)) for r in price_rows]
+        prod_data = [(r.record_date.strftime("%d %b %Y"), float(r.quantity)) for r in prod_rows]
+        return {"price": price_data, "production": prod_data}
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: None)
+def get_latest_record_date(crop_id=None):
+    """Return the most recent date available in Price records."""
+    db = get_session()
+    try:
+        q = db.query(Price.date)
+        if crop_id:
+            q = q.filter(Price.crop_id == crop_id)
+        r = q.order_by(Price.date.desc()).first()
+        return r[0] if r else None
+    finally:
+        db.close()
+
+
+
+
