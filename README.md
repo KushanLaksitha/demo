@@ -1,4 +1,4 @@
-# AgriSense 2.1 — AI-Driven Vegetable Production & Price Optimization System
+# AgriSense — AI-Driven Vegetable Production & Price Optimization System
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Framework](https://img.shields.io/badge/framework-Kivy%20%7C%20KivyMD-green.svg)](https://kivymd.readthedocs.io/)
@@ -6,7 +6,7 @@
 [![Deep Learning & ML](https://img.shields.io/badge/ML%20%26%20DL-TensorFlow%20%7C%20Keras%20%7C%20Scikit--Learn%20%7C%20Statsmodels-brightgreen.svg)](https://www.tensorflow.org/)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
-**AgriSense 2.1** is an advanced, AI-driven mobile and desktop application tailored for Sri Lanka's agricultural ecosystem. The system leverages state-of-the-art **Deep Learning LSTM (Long Short-Term Memory)** neural networks for crop price forecasting, **Random Forest Regressors** for seasonal harvest yields, **SARIMA** seasonal time-series decomposition, and **Rolling Z-Score** anomaly detection to deliver real-time market intelligence and early warning alerts for **Farmers**, **Traders**, **Policymakers**, and **System Administrators**.
+**AgriSense** is an advanced, AI-driven mobile and desktop application tailored for Sri Lanka's agricultural ecosystem. The system leverages state-of-the-art **Deep Learning LSTM (Long Short-Term Memory)** neural networks for crop price forecasting, **Random Forest Regressors** for seasonal harvest yields, **SARIMA** seasonal time-series decomposition, and **Rolling Z-Score** anomaly detection to deliver real-time market intelligence and early warning alerts for **Farmers**, **Traders**, **Policymakers**, and **System Administrators**.
 
 > ### 🚀 Model Architecture & Performance Upgrade (2021–2025 Dataset)
 > The machine learning pipeline has been upgraded with the verified 2021–2025 Sri Lankan agricultural dataset in [`AgriSense_Model_Training_Export.ipynb`](AgriSense_Model_Training_Export.ipynb) using [`AgriSense_Dataset_2021_2025_Cleaned.xlsx`](AgriSense_Dataset_2021_2025_Cleaned.xlsx). 
