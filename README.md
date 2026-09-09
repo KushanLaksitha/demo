@@ -299,6 +299,8 @@ AgriSense addresses agricultural market volatility and crop overproduction/short
   - **Policymaker**: National production trends, regional supply balance, climate impact monitoring, and policy recommendations.
   - **Admin**: User management, database seeding overview, system analytics, and user feedback monitoring with average rating metrics.
 - **AI/ML Forecasting Engine**: Production-ready **Deep Learning LSTM** models for vegetable market prices, **Random Forest** for seasonal crop yields, **SARIMA** seasonal decomposition, and **Rolling Z-Score** anomaly alerts.
+- **Date Search & Market Records Inspector**: Interactive calendar picker enabling users to inspect actual wholesale prices (Rs/kg) and seasonal production outputs (Mt) for any market date between 2021 and 2025, alongside forward-looking AI model predictions.
+- **Dedicated Price & Production History Screen**: Comprehensive full-screen historical analysis with dynamic date pickers, tabbed crop selection, and synchronized AI price/yield forecasting cards.
 - **Interactive Visualizations**: Dynamic Matplotlib charts rendered seamlessly within KivyMD views for intuitive data analysis.
 - **Smart Notification System**: Automated alert generation for price spikes, sharp market drops, regional oversupply, and crop shortages.
 - **Email Verification Flow**: Secure user registration with bcrypt password hashing and tokenized email confirmation (via SMTP and Flask).
@@ -385,7 +387,8 @@ AgriSense/
 │   ├── models.py               # ORM data models (User, Crop, Price, Alert, etc.)
 │   ├── data_service.py         # Data access queries & UI data formatting
 │   ├── auth_service.py         # Registration, authentication & token verification
-│   ├── seed_demo_data.py       # Data generator (2 years weekly demo dataset)
+│   ├── import_excel_dataset.py # Imports verified 2021-2025 Excel dataset into MySQL
+│   ├── seed_demo_data.py       # Seeds verified 2021-2025 dataset and demo user accounts
 │   └── confirm_server.py       # Flask server handling email link verification
 │
 ├── screens/                    # KivyMD UI Screen Components
@@ -395,6 +398,7 @@ AgriSense/
 │   ├── crop_selection_screen.py# Onboarding crop selection UI
 │   ├── dashboard_screen.py     # Role-based dashboard (Farmer, Trader, Policymaker)
 │   ├── admin_dashboard_screen.py# Administrator management dashboard
+│   ├── price_production_history_screen.py # Crop & date search view with actual market records & AI forecast
 │   └── feedback_screen.py      # User feedback screen with 5-star rating system
 │
 └── utils/                      # Helper & Utility Modules
@@ -505,12 +509,24 @@ SMTP_SENDER_NAME=AgriSense
 CONFIRM_BASE_URL=http://127.0.0.1:5000/confirm
 ```
 
-### 3. Seed Demo Data
+### 3. Import Dataset & Seed Demo Accounts
 
-Populate the database with 2 years of weekly price, production, and climate records, along with default test accounts, alerts, and recommendations:
+AgriSense is powered by the verified 2021–2025 multi-year Sri Lankan agricultural dataset in [`AgriSense_Dataset_2021_2025_Cleaned.xlsx`](AgriSense_Dataset_2021_2025_Cleaned.xlsx).
+
+Select the setup option that fits your workflow:
+
+#### 🌟 Option A: Full Setup — Dataset Import & Demo Accounts (Recommended)
+This command automatically imports all 2,285 weekly wholesale prices, 2,285 seasonal production records (in Mt), and 570 climate entries directly from the Excel dataset, while simultaneously creating the 4 pre-configured persona accounts (`Farmer`, `Trader`, `Policymaker`, `Admin`), sample alerts, and crop preferences:
 
 ```bash
 python database/seed_demo_data.py
+```
+
+#### 📊 Option B: Dataset Import Only
+If you only need to populate or refresh the market prices, production records, and climate observations directly from the cleaned Excel dataset without resetting user accounts:
+
+```bash
+python database/import_excel_dataset.py
 ```
 
 ---

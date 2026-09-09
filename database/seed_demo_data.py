@@ -59,36 +59,46 @@ def run():
             db.commit()
             crops = {c.crop_name: c for c in db.query(Crop).all()}
 
-        # ---- 2 years of weekly price / production / climate ----
-        start = date.today() - timedelta(weeks=104)
-        for week in range(104):
-            d = start + timedelta(weeks=week)
-            season = "Maha" if d.month in (10, 11, 12, 1, 2, 3) else "Yala"
-            seasonal_factor = 1.15 if season == "Maha" else 0.9
+        excel_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "AgriSense_Dataset_2021_2025_Cleaned.xlsx")
+        if os.path.exists(excel_file):
+            print("[Seed] Importing real 2021-2025 dataset from Excel...")
+            from database.import_excel_dataset import run_import
+            run_import()
+        else:
+            # Fallback synthetic data generator if Excel file is absent
+            start = date.today() - timedelta(weeks=104)
+            for week in range(104):
+                d = start + timedelta(weeks=week)
+                season = "Maha" if d.month in (10, 11, 12, 1, 2, 3) else "Yala"
+                seasonal_factor = 1.15 if season == "Maha" else 0.9
 
-            for district, region in regions.items():
-                for crop_name, crop in crops.items():
-                    base_p, amp_p = CROP_BASE_PRICE[crop_name]
-                    price_val = max(
-                        50, base_p + amp_p * random.uniform(-0.6, 0.6)
-                        + (20 if district == "Nuwara" else 0)
-                    )
-                    db.add(Price(price=round(price_val, 2), date=d,
-                                  crop_id=crop.crop_id, region_id=region.region_id))
+                for district, region in regions.items():
+                    for crop_name, crop in crops.items():
+                        base_p, amp_p = CROP_BASE_PRICE[crop_name]
+                        price_val = max(
+                            50, base_p + amp_p * random.uniform(-0.6, 0.6)
+                            + (20 if district == "Nuwara" else 0)
+                        )
+                        db.add(Price(price=round(price_val, 2), date=d,
+                                      crop_id=crop.crop_id, region_id=region.region_id))
 
-                    base_q, amp_q = CROP_BASE_PRODUCTION[crop_name]
-                    qty = max(200, (base_q * seasonal_factor) + amp_q * random.uniform(-0.5, 0.5))
-                    db.add(Production(season=season, quantity=round(qty, 2), unit="kg",
-                                        record_date=d, crop_id=crop.crop_id,
-                                        region_id=region.region_id))
+                        base_q, amp_q = CROP_BASE_PRODUCTION[crop_name]
+                        qty = max(200, (base_q * seasonal_factor) + amp_q * random.uniform(-0.5, 0.5))
+                        db.add(Production(season=season, quantity=round(qty, 2), unit="Mt",
+                                            record_date=d, crop_id=crop.crop_id,
+                                            region_id=region.region_id))
 
-                db.add(Climate(
-                    record_date=d, region_id=region.region_id,
-                    rainfall_mm=round(random.uniform(20, 220), 1),
-                    avg_temp_c=round(random.uniform(22, 31), 1),
-                    humidity_pct=round(random.uniform(55, 90), 1),
-                ))
-        db.commit()
+                    db.add(Climate(
+                        record_date=d, region_id=region.region_id,
+                        rainfall_mm=round(random.uniform(20, 220), 1),
+                        avg_temp_c=round(random.uniform(22, 31), 1),
+                        humidity_pct=round(random.uniform(55, 90), 1),
+                    ))
+            db.commit()
+
+        # Re-fetch crops & regions after import
+        crops = {c.crop_name: c for c in db.query(Crop).all()}
+        regions = {r.district: r for r in db.query(Region).all()}
 
         # ---- demo predictions (next 4 weeks per crop, Matale) ----
         matale = regions["Matale"]
