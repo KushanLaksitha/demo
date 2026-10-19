@@ -32,6 +32,10 @@ def run_schema_migrations(engine):
                     pass
                 conn.execute(text("ALTER TABLE user MODIFY COLUMN user_type ENUM('farmer', 'trader', 'policymaker', 'admin') NOT NULL"))
             print("[DB Migration] MySQL user_type column updated to ENUM('farmer', 'trader', 'policymaker', 'admin').")
+
+        # Auto-create newly registered models/tables (such as official_communication)
+        from database.models import Base
+        Base.metadata.create_all(engine)
     except Exception as e:
         print(f"[DB Migration] Schema migration check: {e}")
 

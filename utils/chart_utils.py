@@ -60,12 +60,15 @@ def _fig_to_widget(fig):
 
 
 def build_line_chart(dates, values, title="", y_label="LKR / kg"):
-    """Premium line chart with gradient area fill."""
-    fig, ax = plt.subplots(figsize=(5.4, 3.1), dpi=100)
+    """Premium line chart with gradient area fill and clear monthly labels."""
+    fig, ax = plt.subplots(figsize=(5.6, 3.2), dpi=110)
     fig.patch.set_facecolor(BG)
 
     x = np.arange(len(dates))
-    vals = np.array(values)
+    vals = np.array(values, dtype=float)
+
+    if len(vals) == 0:
+        return _fig_to_widget(fig)
 
     # Gradient fill under the line
     ax.fill_between(x, vals, alpha=0.18, color=GREEN)
@@ -73,70 +76,90 @@ def build_line_chart(dates, values, title="", y_label="LKR / kg"):
 
     # Line with markers
     ax.plot(x, vals, color=GREEN_DARK, linewidth=2.4,
-            marker="o", markersize=4, markerfacecolor="white",
+            marker="o", markersize=4.5, markerfacecolor="white",
             markeredgecolor=GREEN_DARK, markeredgewidth=1.6, zorder=5)
 
-    # Highlight min/max
+    # Highlight min/max with clean badges
     if len(vals) > 1:
         min_i = int(np.argmin(vals))
         max_i = int(np.argmax(vals))
-        ax.scatter([x[max_i]], [vals[max_i]], color=GREEN_DARK, s=60, zorder=6)
-        ax.scatter([x[min_i]], [vals[min_i]], color="#E53935", s=60, zorder=6)
+        ax.scatter([x[max_i]], [vals[max_i]], color="#2E7D32", s=65, zorder=6)
+        ax.annotate(f"Peak: {vals[max_i]:,.0f}", (x[max_i], vals[max_i]),
+                    textcoords="offset points", xytext=(0, 7), ha="center",
+                    fontsize=7.5, fontweight="bold", color="#1B5E20")
 
-    # x-axis ticks
-    if len(dates) > 8:
-        step = max(1, len(dates) // 6)
+        ax.scatter([x[min_i]], [vals[min_i]], color="#D32F2F", s=65, zorder=6)
+        ax.annotate(f"Low: {vals[min_i]:,.0f}", (x[min_i], vals[min_i]),
+                    textcoords="offset points", xytext=(0, -13), ha="center",
+                    fontsize=7.5, fontweight="bold", color="#C62828")
+
+        # Give breathing room at top and bottom for annotations
+        val_range = vals.max() - vals.min()
+        margin = max(val_range * 0.18, vals.max() * 0.12, 10.0)
+        ax.set_ylim(max(0, vals.min() - margin), vals.max() + margin)
+
+    # x-axis ticks: if <= 12 (e.g. monthly), show ALL ticks clearly!
+    ax.set_xticks(x)
+    if len(dates) <= 12:
+        ax.set_xticklabels(dates, rotation=0, ha="center", fontsize=8, fontweight="bold")
+    else:
+        step = max(1, len(dates) // 8)
         ax.set_xticks(x[::step])
         ax.set_xticklabels([dates[i] for i in range(0, len(dates), step)],
-                           rotation=30, ha="right", fontsize=8)
-    else:
-        ax.set_xticks(x)
-        ax.set_xticklabels(dates, rotation=30, ha="right", fontsize=8)
+                           rotation=25, ha="right", fontsize=8)
 
     _style_axes(ax, title=title, y_label=y_label)
     fig.tight_layout(pad=1.2)
     return _fig_to_widget(fig)
 
 
-def build_bar_chart(labels, values, title="", y_label="kg"):
+def build_bar_chart(labels, values, title="", y_label="Mt"):
     """Premium bar chart with rounded tops and gradient colours."""
-    fig, ax = plt.subplots(figsize=(5.4, 3.1), dpi=100)
+    fig, ax = plt.subplots(figsize=(5.6, 3.2), dpi=110)
     fig.patch.set_facecolor(BG)
 
     x = np.arange(len(labels))
-    vals = np.array(values)
+    vals = np.array(values, dtype=float)
+
+    if len(vals) == 0:
+        return _fig_to_widget(fig)
 
     # Colour bars by value (darker = higher)
-    norm_vals = (vals - vals.min()) / ((vals.max() - vals.min()) + 1e-9)
+    v_min, v_max = vals.min(), vals.max()
+    norm_vals = (vals - v_min) / ((v_max - v_min) + 1e-9)
     colours = [plt.cm.Greens(0.35 + 0.55 * v) for v in norm_vals]
 
     bars = ax.bar(x, vals, color=colours,
-                  edgecolor=GREEN_DARK, linewidth=0.7,
-                  width=0.65, zorder=3)
+                  edgecolor=GREEN_DARK, linewidth=0.8,
+                  width=0.62, zorder=3)
 
     # Value labels on top of each bar
     for bar, val in zip(bars, vals):
         if len(labels) <= 12:
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + vals.max() * 0.01,
-                f"{val:,.0f}",
+                bar.get_height() + (v_max * 0.015),
+                f"{val:,.0f}" if val >= 10 else f"{val:,.1f}",
                 ha="center", va="bottom",
-                fontsize=7, color=GREY,
+                fontsize=7, fontweight="bold", color=DARK,
             )
 
-    if len(labels) > 8:
-        step = max(1, len(labels) // 6)
+    ax.set_ylim(0, v_max * 1.16)
+
+    # x-axis ticks: if <= 12 (e.g. monthly), show all ticks!
+    ax.set_xticks(x)
+    if len(labels) <= 12:
+        ax.set_xticklabels(labels, rotation=0, ha="center", fontsize=8, fontweight="bold")
+    else:
+        step = max(1, len(labels) // 8)
         ax.set_xticks(x[::step])
         ax.set_xticklabels([labels[i] for i in range(0, len(labels), step)],
-                           rotation=30, ha="right", fontsize=8)
-    else:
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=8)
+                           rotation=25, ha="right", fontsize=8)
 
     _style_axes(ax, title=title, y_label=y_label)
     fig.tight_layout(pad=1.2)
     return _fig_to_widget(fig)
+
 
 
 def build_comparison_bar(labels, series_a, series_b,

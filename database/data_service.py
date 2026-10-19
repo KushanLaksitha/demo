@@ -10,11 +10,12 @@ Screens can still detect the failure via `last_db_error_occurred()`
 if they want to show a "can't reach the database" message.
 """
 import functools
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from database.db_connection import get_session
 from database.models import (
-    Region, Crop, Production, Price, Climate, Prediction, Alert, Recommendation, Feedback, User, UserPreferences
+    Region, Crop, Production, Price, Climate, Prediction, Alert, Recommendation, Feedback, User, UserPreferences,
+    OfficialCommunication
 )
 
 _last_db_error = {"occurred": False, "message": ""}
@@ -128,6 +129,363 @@ def get_production_history(crop_id, region_id=None, weeks=12):
         db.close()
 
 
+@db_safe(default=lambda: [2025, 2024, 2023, 2022, 2021])
+def get_available_record_years(crop_id=None):
+    """Returns sorted list of unique years in descending order."""
+    db = get_session()
+    try:
+        from sqlalchemy import func
+        q_p = db.query(func.year(Price.date).label("yr"))
+        if crop_id:
+            q_p = q_p.filter(Price.crop_id == crop_id)
+        years_p = {r[0] for r in q_p.distinct().all() if r[0]}
+
+        q_prod = db.query(func.year(Production.record_date).label("yr"))
+        if crop_id:
+            q_prod = q_prod.filter(Production.crop_id == crop_id)
+        years_prod = {r[0] for r in q_prod.distinct().all() if r[0]}
+
+        all_years = sorted(years_p | years_prod, reverse=True)
+        return all_years if all_years else [2025, 2024, 2023, 2022, 2021]
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: ([], {}))
+def get_price_history_by_year(crop_id, year, region_id=None):
+    """
+    Returns (data, stats) for a specific year.
+    data: [(month_name, avg_price), ...] for all 12 months.
+    stats: {
+        "avg": float,
+        "min": float,
+        "max": float,
+        "min_month": str,
+        "max_month": str,
+        "total_records": int,
+        "year": int
+    }
+    """
+    db = get_session()
+    try:
+        from sqlalchemy import func
+        import calendar
+
+        q = db.query(
+            func.month(Price.date).label("m"),
+            func.avg(Price.price).label("avg_p"),
+            func.min(Price.price).label("min_p"),
+            func.max(Price.price).label("max_p"),
+            func.count(Price.price_id).label("cnt")
+        ).filter(Price.crop_id == crop_id, func.year(Price.date) == int(year))
+        if region_id:
+            q = q.filter(Price.region_id == region_id)
+        rows = q.group_by(func.month(Price.date)).order_by(func.month(Price.date)).all()
+
+        if not rows:
+            return [], {}
+
+        data = []
+        all_avgs = []
+        min_overall = float("inf")
+        max_overall = float("-inf")
+        min_month = ""
+        max_month = ""
+        total_records = 0
+
+        for r in rows:
+            m_num = int(r.m)
+            m_abbr = calendar.month_abbr[m_num]
+            avg_p = round(float(r.avg_p), 2)
+            min_p = round(float(r.min_p), 2)
+            max_p = round(float(r.max_p), 2)
+            cnt = int(r.cnt)
+
+            data.append((m_abbr, avg_p))
+            all_avgs.append(avg_p)
+            total_records += cnt
+
+            if min_p < min_overall:
+                min_overall = min_p
+                min_month = m_abbr
+            if max_p > max_overall:
+                max_overall = max_p
+                max_month = m_abbr
+
+        overall_avg = round(sum(all_avgs) / len(all_avgs), 2) if all_avgs else 0.0
+
+        stats = {
+            "avg": overall_avg,
+            "min": min_overall if min_overall != float("inf") else 0.0,
+            "max": max_overall if max_overall != float("-inf") else 0.0,
+            "min_month": min_month,
+            "max_month": max_month,
+            "total_records": total_records,
+            "year": int(year),
+        }
+        return data, stats
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: ([], {}))
+def get_production_history_by_year(crop_id, year, region_id=None):
+    """
+    Returns (data, stats) for a specific year.
+    data: [(month_name, total_quantity), ...] for all 12 months.
+    stats: {
+        "total": float,
+        "avg": float,
+        "min": float,
+        "max": float,
+        "min_month": str,
+        "max_month": str,
+        "total_records": int,
+        "year": int
+    }
+    """
+    db = get_session()
+    try:
+        from sqlalchemy import func
+        import calendar
+
+        q = db.query(
+            func.month(Production.record_date).label("m"),
+            func.sum(Production.quantity).label("tot_q"),
+            func.avg(Production.quantity).label("avg_q"),
+            func.min(Production.quantity).label("min_q"),
+            func.max(Production.quantity).label("max_q"),
+            func.count(Production.production_id).label("cnt")
+        ).filter(Production.crop_id == crop_id, func.year(Production.record_date) == int(year))
+        if region_id:
+            q = q.filter(Production.region_id == region_id)
+        rows = q.group_by(func.month(Production.record_date)).order_by(func.month(Production.record_date)).all()
+
+        if not rows:
+            return [], {}
+
+        data = []
+        totals = []
+        min_overall = float("inf")
+        max_overall = float("-inf")
+        min_month = ""
+        max_month = ""
+        total_records = 0
+
+        for r in rows:
+            m_num = int(r.m)
+            m_abbr = calendar.month_abbr[m_num]
+            tot_q = round(float(r.tot_q), 2)
+            cnt = int(r.cnt)
+
+            data.append((m_abbr, tot_q))
+            totals.append(tot_q)
+            total_records += cnt
+
+            if tot_q < min_overall:
+                min_overall = tot_q
+                min_month = m_abbr
+            if tot_q > max_overall:
+                max_overall = tot_q
+                max_month = m_abbr
+
+        total_sum = round(sum(totals), 2)
+        month_avg = round(total_sum / len(totals), 2) if totals else 0.0
+
+        stats = {
+            "total": total_sum,
+            "avg": month_avg,
+            "min": min_overall if min_overall != float("inf") else 0.0,
+            "max": max_overall if max_overall != float("-inf") else 0.0,
+            "min_month": min_month,
+            "max_month": max_month,
+            "total_records": total_records,
+            "year": int(year),
+        }
+        return data, stats
+    finally:
+        db.close()
+
+
+@db_safe(default=dict)
+def get_trader_stocks(user_id=None):
+    """Returns {crop_name: quantity_kg} saved for trader, or default realistic baseline."""
+    default_baseline = {
+        "Beans": 850.0,
+        "Cabbage": 120.0,
+        "Carrots": 2100.0,
+        "Leeks": 600.0,
+        "Okra": 450.0,
+    }
+    if not user_id:
+        return default_baseline
+
+    db = get_session()
+    try:
+        import json
+        pref = db.query(UserPreferences).filter_by(user_id=user_id).first()
+        if pref and pref.notification_settings and pref.notification_settings.startswith("{"):
+            try:
+                data = json.loads(pref.notification_settings)
+                if isinstance(data, dict) and "stocks" in data and isinstance(data["stocks"], dict):
+                    stocks = default_baseline.copy()
+                    for k, v in data["stocks"].items():
+                        try:
+                            stocks[k] = float(v)
+                        except Exception:
+                            pass
+                    return stocks
+            except Exception:
+                pass
+        return default_baseline
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: False)
+def save_trader_stock(user_id, crop_name, quantity_kg):
+    """Saves updated stock quantity for a crop."""
+    if not user_id:
+        return False
+    db = get_session()
+    try:
+        import json
+        pref = db.query(UserPreferences).filter_by(user_id=user_id).first()
+        if not pref:
+            pref = UserPreferences(user_id=user_id, notification_settings="{}")
+            db.add(pref)
+
+        data = {}
+        if pref.notification_settings and pref.notification_settings.startswith("{"):
+            try:
+                data = json.loads(pref.notification_settings)
+            except Exception:
+                data = {}
+        if "stocks" not in data or not isinstance(data["stocks"], dict):
+            data["stocks"] = get_trader_stocks(user_id)
+
+        data["stocks"][crop_name] = max(0.0, float(quantity_kg))
+        pref.notification_settings = json.dumps(data)
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+
+@db_safe(default=dict)
+def get_trader_inventory_summary(user_id=None, region_id=None):
+    """
+    Returns real inventory data derived from DB prices, production supply, and trader stock quantities:
+    - Real latest wholesale prices from Price table
+    - Real production supply from Production table
+    - Real computed crop valuations and total inventory value
+    """
+    db = get_session()
+    try:
+        from datetime import datetime
+        stocks = get_trader_stocks(user_id)
+        crops = db.query(Crop).order_by(Crop.crop_name).all()
+
+        region = db.query(Region).filter_by(region_id=region_id).first() if region_id else None
+        district = region.district if region else "Kandy"
+
+        items = []
+        total_value = 0.0
+
+        CROP_ICONS = {
+            "Beans": "seed",
+            "Cabbage": "flower-tulip",
+            "Carrots": "carrot",
+            "Leeks": "sprout",
+            "Okra": "leaf",
+        }
+
+        for c in crops:
+            # 1. Real latest price from DB
+            pq = db.query(Price).filter_by(crop_id=c.crop_id)
+            if region_id:
+                pq = pq.filter_by(region_id=region_id)
+            latest_p = pq.order_by(Price.date.desc()).first()
+            prev_p = pq.order_by(Price.date.desc()).offset(1).first()
+
+            price = float(latest_p.price) if latest_p else 200.0
+            prev_price = float(prev_p.price) if prev_p else price
+            chg_pct = round(((price - prev_price) / prev_price * 100), 1) if prev_price else 0.0
+
+            # 2. Real regional production supply from DB
+            prq = db.query(Production).filter_by(crop_id=c.crop_id)
+            if region_id:
+                prq = prq.filter_by(region_id=region_id)
+            latest_prod = prq.order_by(Production.record_date.desc()).first()
+            prod_qty = float(latest_prod.quantity) if latest_prod else 0.0
+
+            # 3. Stock quantity in kg
+            qty_kg = float(stocks.get(c.crop_name, 500.0))
+            if qty_kg >= 1000:
+                qty_str = f"{qty_kg / 1000:.1f} tons"
+            else:
+                qty_str = f"{qty_kg:,.0f} kg"
+
+            # 4. Computed valuation
+            item_val = qty_kg * price
+            total_value += item_val
+
+            # 5. Tag based on stock level & supply
+            if qty_kg < 200:
+                tag = "LOW STOCK"
+                tag_bg = (0.99, 0.88, 0.88, 1)
+                tag_fg = (0.85, 0.20, 0.20, 1)
+            elif qty_kg > 1500:
+                tag = "SURPLUS"
+                tag_bg = (0.88, 0.94, 0.99, 1)
+                tag_fg = (0.15, 0.45, 0.75, 1)
+            elif qty_kg >= 400:
+                tag = "OPTIMAL"
+                tag_bg = (0.88, 0.96, 0.88, 1)
+                tag_fg = (0.13, 0.65, 0.22, 1)
+            else:
+                tag = "FAIR"
+                tag_bg = (0.99, 0.96, 0.82, 1)
+                tag_fg = (0.75, 0.50, 0.05, 1)
+
+            rec_date_str = latest_p.date.strftime("%d %b %Y") if (latest_p and latest_p.date) else "Recent"
+
+            items.append({
+                "crop": c.crop_name,
+                "crop_id": c.crop_id,
+                "category": c.category,
+                "icon": CROP_ICONS.get(c.crop_name, "leaf"),
+                "price": price,
+                "price_str": f"Rs. {price:,.2f} / kg",
+                "price_change_pct": chg_pct,
+                "qty": qty_kg,
+                "qty_str": qty_str,
+                "value": item_val,
+                "value_str": f"Rs. {item_val:,.2f}",
+                "regional_supply_mt": prod_qty,
+                "tag": tag,
+                "tag_bg": tag_bg,
+                "tag_fg": tag_fg,
+                "recorded_date": rec_date_str,
+            })
+
+        now = datetime.now()
+        sync_time_str = now.strftime("%A, %I:%M %p")
+
+        return {
+            "total_value": total_value,
+            "total_value_str": f"Rs. {total_value:,.2f}",
+            "total_categories": len(items),
+            "district": district,
+            "sync_time": sync_time_str,
+            "items": items,
+        }
+    finally:
+        db.close()
+
+
+
+
 @db_safe(default=dict)
 def get_latest_predictions(prediction_type="price", region_id=None, limit_per_crop=4):
     """Returns {crop_name: [(date_str, value), ...]} for upcoming predictions."""
@@ -177,12 +535,118 @@ def mark_alert_read(alert_id):
 
 
 @db_safe(default=list)
+def ensure_sample_alerts_if_empty(user_id, role="farmer", district="Matale"):
+    """Populates realistic multi-category alerts if user has fewer than 3 alerts."""
+    db = get_session()
+    try:
+        count = db.query(Alert).filter_by(user_id=user_id).count()
+        if count >= 3:
+            return
+        
+        sample_farmer = [
+            ("price_spike", f"Beans wholesale price predicted to spike to Rs.420/kg (+24%) in {district}. Favorable window for harvesting and early selling."),
+            ("price_drop", f"Cabbage price forecast to drop to Rs.105/kg (-16%) in {district}. Hold harvest or explore Dambulla economic center."),
+            ("heavy_rain", f"Heavy rainfall predicted (165mm) in {district}. Protect crops from waterlogging and delay scheduled fertilizer application."),
+            ("production_surplus", f"Beans harvest surplus expected (4,200 Mt, 137% of seasonal average). Plan distributed market sales to avoid glut."),
+            ("official_notice", f"Agrarian Services Advisory: Fall Armyworm (සේනා දළඹු) surveillance active in {district}. Report suspicious crop damage to AI officer."),
+        ]
+        sample_trader = [
+            ("price_spike", f"Carrots wholesale price surging (+22%) in {district} wholesale market due to transport constraints."),
+            ("production_shortage", f"Leeks production shortage predicted (2,400 Mt, only 63% of seasonal average). High retail demand expected."),
+            ("drought_risk", f"Dry spell forecast (22mm rain) in {district}. Transport routes and open-air drying yards operating under clear skies."),
+            ("official_notice", f"Dambulla Dedicated Economic Centre: Extended night wholesale receiving hours active for vegetable consignments."),
+        ]
+        sample_policy = [
+            ("production_shortage", "National harvest shortage projected for Leeks and Carrots in Q3. Buffer stock intervention and price stabilization recommended."),
+            ("production_surplus", f"Cabbage oversupply alert across {district} (142% of seasonal baseline). Inter-district redistribution advised to prevent crop loss."),
+            ("heavy_rain", f"Precipitation anomaly: Monsoon rainfall variance exceeding 170mm in {district} agricultural watershed."),
+            ("official_notice", "Ministry of Agriculture: Vegetable Price Stabilization and National Cold-Chain Monitoring Task Force convened."),
+        ]
+
+        templates = sample_farmer
+        if role == "trader":
+            templates = sample_trader
+        elif role == "policymaker":
+            templates = sample_policy
+
+        for atype, msg in templates:
+            exists = db.query(Alert).filter_by(user_id=user_id, alert_type=atype).first()
+            if not exists:
+                db.add(Alert(alert_type=atype, message=msg, user_id=user_id, is_read=False))
+        db.commit()
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: 0)
+def broadcast_admin_alert(message, alert_type="official_notice", target_role=None):
+    """Broadcast an announcement or alert from Admin to active users."""
+    db = get_session()
+    try:
+        q = db.query(User).filter_by(is_active=True)
+        if target_role and target_role != "all":
+            q = q.filter_by(user_type=target_role)
+        users = q.all()
+        count = 0
+        for u in users:
+            db.add(Alert(alert_type=alert_type, message=message, user_id=u.user_id, is_read=False))
+            count += 1
+        db.commit()
+        return count
+    finally:
+        db.close()
+
+
+@db_safe(default=list)
 def get_recommendations_for_user(user_id):
     db = get_session()
     try:
         rows = db.query(Recommendation).filter_by(user_id=user_id).order_by(
             Recommendation.created_at.desc()).all()
         return [{"id": r.recommendation_id, "message": r.message, "created_at": r.created_at} for r in rows]
+    finally:
+        db.close()
+
+
+@db_safe(default=list)
+def ensure_sample_recommendations_if_empty(user_id, role="farmer", district="Matale"):
+    """Populates realistic multi-category recommendations if user has fewer than 3."""
+    db = get_session()
+    try:
+        count = db.query(Recommendation).filter_by(user_id=user_id).count()
+        if count >= 3:
+            return
+        
+        sample_farmer_recs = [
+            ("price", f"Beans Price Surge: Predicted to rise to Rs. 420/kg (+24%). Harvest mature pods this weekend and dispatch early to Pettah or Dambulla for maximum profits."),
+            ("weather", f"Heavy Rainfall Expected ({district}): Clear drainage furrows and elevate nursery beds. Delay urea application by 4 days to prevent nutrient leaching."),
+            ("production", f"Leeks Supply Shortage: Low regional output predicted this season. Prioritize Leeks cultivation and water allocation for higher price margins."),
+            ("combined", f"Crop Diversification Advisory: Inter-crop Okra with legumes to maximize soil nitrogen fixation while market demand remains steady in {district}."),
+        ]
+        sample_trader_recs = [
+            ("price", f"Carrots Wholesale Window: Wholesale buying prices are trending up (+22%) in {district}. Secure direct forward contracts with farmer cooperatives."),
+            ("production", f"Cabbage Supply Surplus: Expecting 140% of seasonal volume. Coordinate cold storage transport to prevent localized price collapse."),
+            ("weather", f"Transport Route Advisory: Dry spell forecast in {district} ensures clear road conditions across central wholesale corridors."),
+            ("combined", f"Inventory Optimization: High demand for Beans and Leeks in Colombo markets; stock up early ahead of weekend trading cycles."),
+        ]
+        sample_policy_recs = [
+            ("production", f"National Harvest Shortage: Leeks output below 70% threshold. Implement regional redistribution from Nuwara Eliya to Colombo."),
+            ("price", f"Wholesale Price Stabilization: Price volatility index elevated for Carrots. Activate cooperative purchasing centers."),
+            ("weather", f"Climate Resilience Alert: Monsoonal rainfall excess predicted in {district}. Deploy regional flood prevention advisory teams."),
+            ("combined", f"Long-term Agro-Policy: Encourage drought-resistant varieties for upcoming Yala season in intermediate rainfall zones."),
+        ]
+
+        templates = sample_farmer_recs
+        if role == "trader":
+            templates = sample_trader_recs
+        elif role == "policymaker":
+            templates = sample_policy_recs
+
+        for rtype, rmsg in templates:
+            exists = db.query(Recommendation).filter_by(user_id=user_id, message=rmsg).first()
+            if not exists:
+                db.add(Recommendation(message=rmsg, user_id=user_id))
+        db.commit()
     finally:
         db.close()
 
@@ -841,5 +1305,500 @@ def get_latest_record_date(crop_id=None):
         db.close()
 
 
+@db_safe(default=lambda: None)
+def get_earliest_record_date(crop_id=None):
+    """Return the earliest date available in Price records."""
+    db = get_session()
+    try:
+        q = db.query(Price.date)
+        if crop_id:
+            q = q.filter(Price.crop_id == crop_id)
+        r = q.order_by(Price.date.asc()).first()
+        return r[0] if r else None
+    finally:
+        db.close()
 
+
+@db_safe(default=dict)
+def get_policymaker_dashboard_data():
+    """
+    Returns all real data needed for the Policymaker dashboard:
+    - food_security_score: index 0-100 based on production / AI-predicted demand
+    - food_security_change: change vs previous period
+    - yield_growth_pct: avg yield growth % across all crops/regions
+    - yield_growth_label: human-readable trend label (Growing/Stable/Declining)
+    - heatmap_regions: list of {name, district, total_mt, intensity} per region
+    - pvd_crops: list of {crop, prod_mt, pred_mt, shortfall_label, is_surplus} per crop
+    - insight: auto-generated strategic insight from real data
+    - sync_time: timestamp string
+    - total_regions: count of monitored regions
+    """
+    from datetime import datetime
+    db = get_session()
+    try:
+        crops = db.query(Crop).order_by(Crop.crop_name).all()
+        regions = db.query(Region).order_by(Region.region_id).all()
+
+        # ── 1. Regional heatmap data ─────────────────────────────────
+        heatmap_regions = []
+        all_totals = []
+        for reg in regions:
+            total_mt = 0.0
+            for c in crops:
+                latest = (db.query(Production)
+                          .filter_by(crop_id=c.crop_id, region_id=reg.region_id)
+                          .order_by(Production.record_date.desc()).first())
+                if latest:
+                    total_mt += float(latest.quantity)
+            all_totals.append(total_mt)
+            heatmap_regions.append({
+                "name": reg.region_name,
+                "district": reg.district,
+                "region_id": reg.region_id,
+                "total_mt": total_mt,
+                "intensity": 0.0,
+            })
+
+        max_t = max(all_totals) if all_totals else 1.0
+        for item in heatmap_regions:
+            item["intensity"] = round(item["total_mt"] / max_t, 2) if max_t > 0 else 0.5
+
+        # ── 2. Production vs AI-Predicted Demand per crop ────────────
+        pvd_crops = []
+        total_prod = 0.0
+        total_pred = 0.0
+
+        for c in crops:
+            crop_prod = 0.0
+            prev_prod = 0.0
+            for reg in regions:
+                latest_p = (db.query(Production)
+                            .filter_by(crop_id=c.crop_id, region_id=reg.region_id)
+                            .order_by(Production.record_date.desc()).first())
+                prev_p = (db.query(Production)
+                          .filter_by(crop_id=c.crop_id, region_id=reg.region_id)
+                          .order_by(Production.record_date.desc()).offset(1).first())
+                if latest_p:
+                    crop_prod += float(latest_p.quantity)
+                if prev_p:
+                    prev_prod += float(prev_p.quantity)
+
+            # AI predicted production (latest future prediction as 'demand target')
+            pred_row = (db.query(Prediction)
+                        .filter_by(crop_id=c.crop_id, prediction_type="production")
+                        .order_by(Prediction.prediction_date.desc()).first())
+            pred_val = float(pred_row.prediction_value) if pred_row else crop_prod * 1.1
+
+            diff = crop_prod - pred_val
+            is_surplus = diff >= 0
+            if is_surplus:
+                diff_label = f"Surplus: +{diff/1000:.1f}k Mt"
+            else:
+                diff_label = f"Shortfall: {diff/1000:.1f}k Mt"
+
+            max_bar = max(crop_prod, pred_val)
+            pvd_crops.append({
+                "crop": c.crop_name,
+                "prod_mt": crop_prod,
+                "pred_mt": pred_val,
+                "max_bar": max_bar,
+                "prod_label": f"{crop_prod/1000:.1f}k Mt",
+                "pred_label": f"{pred_val/1000:.1f}k Mt",
+                "shortfall_label": diff_label,
+                "is_surplus": is_surplus,
+                "diff": diff,
+            })
+
+            total_prod += crop_prod
+            total_pred += pred_val
+
+        # ── 3. Food Security Score ───────────────────────────────────
+        coverage = (total_prod / total_pred * 100) if total_pred > 0 else 75.0
+        food_security_score = round(min(coverage, 100.0), 1)
+
+        prev_total = 0.0
+        for c in crops:
+            for reg in regions:
+                prev_r = (db.query(Production)
+                          .filter_by(crop_id=c.crop_id, region_id=reg.region_id)
+                          .order_by(Production.record_date.desc()).offset(1).first())
+                if prev_r:
+                    prev_total += float(prev_r.quantity)
+        prev_coverage = (prev_total / total_pred * 100) if (total_pred > 0 and prev_total > 0) else food_security_score
+        food_sec_change = round(food_security_score - prev_coverage, 1)
+
+        # ── 4. Yield Growth ──────────────────────────────────────────
+        growth_pcts = []
+        for c in crops:
+            for reg in regions:
+                latest_pr = (db.query(Production)
+                             .filter_by(crop_id=c.crop_id, region_id=reg.region_id)
+                             .order_by(Production.record_date.desc()).first())
+                prev_pr = (db.query(Production)
+                           .filter_by(crop_id=c.crop_id, region_id=reg.region_id)
+                           .order_by(Production.record_date.desc()).offset(1).first())
+                if latest_pr and prev_pr and prev_pr.quantity:
+                    pct = ((float(latest_pr.quantity) - float(prev_pr.quantity))
+                           / float(prev_pr.quantity) * 100)
+                    growth_pcts.append(pct)
+
+        yield_growth = round(sum(growth_pcts) / len(growth_pcts), 1) if growth_pcts else 0.0
+        if yield_growth > 2:
+            yield_label = "↑ Growing"
+        elif yield_growth < -2:
+            yield_label = "↓ Declining"
+        else:
+            yield_label = "↔ Stable"
+
+        # ── 5. Strategic Insight (auto from data) ───────────────────
+        shortfall_crops = [p for p in pvd_crops if not p["is_surplus"]]
+        surplus_crops = [p for p in pvd_crops if p["is_surplus"]]
+
+        if shortfall_crops:
+            worst = min(shortfall_crops, key=lambda x: x["diff"])
+            insight = (
+                f"{worst['crop']} production is {abs(worst['diff']/1000):.1f}k Mt below "
+                f"AI-predicted demand. Consider supply chain interventions to prevent market shortages."
+            )
+        elif surplus_crops:
+            best = max(surplus_crops, key=lambda x: x["diff"])
+            insight = (
+                f"{best['crop']} shows a surplus of {best['diff']/1000:.1f}k Mt above predicted demand. "
+                f"Market prices may ease — consider export or strategic storage allocation."
+            )
+        else:
+            insight = ("All crop productions are aligned with AI-predicted demand. "
+                       "Market stability is maintained across monitored regions.")
+
+        sync_time = datetime.now().strftime("%A, %I:%M %p")
+
+        return {
+            "food_security_score": food_security_score,
+            "food_security_change": food_sec_change,
+            "yield_growth_pct": yield_growth,
+            "yield_growth_label": yield_label,
+            "heatmap_regions": heatmap_regions,
+            "pvd_crops": pvd_crops,
+            "insight": insight,
+            "sync_time": sync_time,
+            "total_regions": len(regions),
+        }
+    finally:
+        db.close()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECURE OFFICIAL POLICY COMMUNICATIONS (POLICYMAKER <-> ADMIN)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@db_safe(default=lambda: (False, "Database error"))
+def send_official_communication(sender_id, subject, message, category="Policy Advisory",
+                                priority="Normal", parent_id=None, receiver_id=None):
+    """
+    Submits an official confidential communication / dispatch.
+    If receiver_id is None, automatically routes to the first active Admin.
+    """
+    db = get_session()
+    try:
+        if not receiver_id:
+            admin_user = db.query(User).filter_by(user_type="admin", is_active=True).first()
+            if admin_user:
+                receiver_id = admin_user.user_id
+
+        comm = OfficialCommunication(
+            sender_id=sender_id,
+            receiver_id=receiver_id,
+            subject=subject.strip(),
+            category=category.strip() or "Policy Advisory",
+            priority=priority.strip() or "Normal",
+            message=message.strip(),
+            parent_id=parent_id,
+            status="Pending Admin Review" if not parent_id else "In Review",
+            is_read_by_receiver=False,
+            is_read_by_sender=True,
+        )
+        db.add(comm)
+
+        # If replying to a parent thread, update the root thread's status
+        if parent_id:
+            parent = db.query(OfficialCommunication).filter_by(comm_id=parent_id).first()
+            if parent:
+                parent.is_read_by_receiver = False
+                parent.status = "Action Taken" if priority == "Urgent / Confidential" else "In Review"
+
+        db.commit()
+        return True, comm.comm_id
+    finally:
+        db.close()
+
+
+@db_safe(default=list)
+def get_policymaker_communications(user_id):
+    """
+    Returns all root communication threads involving this policymaker,
+    including any replies exchanged with the Admin desk.
+    """
+    db = get_session()
+    try:
+        from datetime import datetime
+        threads = (
+            db.query(OfficialCommunication)
+            .filter(
+                OfficialCommunication.parent_id.is_(None),
+                (OfficialCommunication.sender_id == user_id) | (OfficialCommunication.receiver_id == user_id)
+            )
+            .order_by(OfficialCommunication.created_at.desc())
+            .all()
+        )
+
+        result = []
+        for t in threads:
+            replies = (
+                db.query(OfficialCommunication)
+                .filter_by(parent_id=t.comm_id)
+                .order_by(OfficialCommunication.created_at.asc())
+                .all()
+            )
+            replies_data = []
+            for r in replies:
+                replies_data.append({
+                    "comm_id": r.comm_id,
+                    "sender_id": r.sender_id,
+                    "sender_name": f"{r.sender.first_name} {r.sender.last_name}" if r.sender else "Admin Desk",
+                    "sender_role": r.sender.user_type if r.sender else "admin",
+                    "message": r.message,
+                    "created_at": r.created_at.strftime("%b %d, %Y • %I:%M %p") if r.created_at else "",
+                })
+
+            result.append({
+                "comm_id": t.comm_id,
+                "subject": t.subject,
+                "category": t.category,
+                "priority": t.priority,
+                "message": t.message,
+                "status": t.status,
+                "created_at": t.created_at.strftime("%b %d, %Y • %I:%M %p") if t.created_at else "",
+                "sender_id": t.sender_id,
+                "sender_name": f"{t.sender.first_name} {t.sender.last_name}" if t.sender else "Policymaker",
+                "sender_role": t.sender.user_type if t.sender else "policymaker",
+                "sender_district": t.sender.region.district if (t.sender and t.sender.region) else "National",
+                "is_read": t.is_read_by_sender if t.sender_id == user_id else t.is_read_by_receiver,
+                "reply_count": len(replies_data),
+                "replies": replies_data,
+            })
+        return result
+    finally:
+        db.close()
+
+
+@db_safe(default=list)
+def get_admin_communications():
+    """
+    Returns all root communications from policymakers for the Admin Console.
+    """
+    db = get_session()
+    try:
+        from datetime import datetime
+        threads = (
+            db.query(OfficialCommunication)
+            .filter(OfficialCommunication.parent_id.is_(None))
+            .order_by(OfficialCommunication.created_at.desc())
+            .all()
+        )
+
+        result = []
+        for t in threads:
+            replies = (
+                db.query(OfficialCommunication)
+                .filter_by(parent_id=t.comm_id)
+                .order_by(OfficialCommunication.created_at.asc())
+                .all()
+            )
+            replies_data = []
+            for r in replies:
+                replies_data.append({
+                    "comm_id": r.comm_id,
+                    "sender_id": r.sender_id,
+                    "sender_name": f"{r.sender.first_name} {r.sender.last_name}" if r.sender else "Admin Desk",
+                    "sender_role": r.sender.user_type if r.sender else "admin",
+                    "message": r.message,
+                    "created_at": r.created_at.strftime("%b %d, %Y • %I:%M %p") if r.created_at else "",
+                })
+
+            result.append({
+                "comm_id": t.comm_id,
+                "subject": t.subject,
+                "category": t.category,
+                "priority": t.priority,
+                "message": t.message,
+                "status": t.status,
+                "created_at": t.created_at.strftime("%b %d, %Y • %I:%M %p") if t.created_at else "",
+                "sender_id": t.sender_id,
+                "sender_name": f"{t.sender.first_name} {t.sender.last_name}" if t.sender else "Policymaker",
+                "sender_role": t.sender.user_type if t.sender else "policymaker",
+                "sender_district": t.sender.region.district if (t.sender and t.sender.region) else "National",
+                "is_read": t.is_read_by_receiver,
+                "reply_count": len(replies_data),
+                "replies": replies_data,
+            })
+        return result
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: (False, "Database error"))
+def reply_official_communication(sender_id, parent_id, message, new_status="Action Taken"):
+    """
+    Adds an official reply into a communication thread.
+    """
+    db = get_session()
+    try:
+        parent = db.query(OfficialCommunication).filter_by(comm_id=parent_id).first()
+        if not parent:
+            return False, "Parent thread not found."
+
+        reply = OfficialCommunication(
+            sender_id=sender_id,
+            receiver_id=parent.sender_id if parent.sender_id != sender_id else parent.receiver_id,
+            subject=f"Re: {parent.subject}",
+            category=parent.category,
+            priority=parent.priority,
+            message=message.strip(),
+            parent_id=parent_id,
+            status=new_status,
+            is_read_by_receiver=False,
+            is_read_by_sender=True,
+        )
+        db.add(reply)
+        parent.status = new_status
+        parent.is_read_by_receiver = False
+        db.commit()
+        return True, reply.comm_id
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: False)
+def mark_communication_read(comm_id, is_admin=False):
+    """Marks a thread and its replies as read."""
+    db = get_session()
+    try:
+        thread = db.query(OfficialCommunication).filter_by(comm_id=comm_id).first()
+        if thread:
+            if is_admin:
+                thread.is_read_by_receiver = True
+            else:
+                thread.is_read_by_sender = True
+            replies = db.query(OfficialCommunication).filter_by(parent_id=thread.comm_id).all()
+            for r in replies:
+                if is_admin:
+                    r.is_read_by_receiver = True
+                else:
+                    r.is_read_by_sender = True
+            db.commit()
+            return True
+        return False
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: 0)
+def get_unread_communication_count(user_id=None, is_admin=False):
+    """Returns number of unread official communications."""
+    db = get_session()
+    try:
+        if is_admin:
+            return db.query(OfficialCommunication).filter_by(parent_id=None, is_read_by_receiver=False).count()
+        elif user_id:
+            return (
+                db.query(OfficialCommunication)
+                .filter(
+                    OfficialCommunication.parent_id.is_(None),
+                    OfficialCommunication.sender_id == user_id,
+                    OfficialCommunication.is_read_by_sender == False
+                )
+                .count()
+            )
+        return 0
+    finally:
+        db.close()
+
+
+@db_safe(default=lambda: False)
+def ensure_sample_communications_if_empty():
+    """Seeds authentic sample policy communications if none exist."""
+    db = get_session()
+    try:
+        if db.query(OfficialCommunication).count() > 0:
+            return False
+
+        policy_user = db.query(User).filter_by(user_type="policymaker").first()
+        admin_user = db.query(User).filter_by(user_type="admin").first()
+
+        if not policy_user or not admin_user:
+            return False
+
+        now = datetime.utcnow()
+
+        # Thread 1: Urgent Buffer Stock Intervention
+        c1 = OfficialCommunication(
+            sender_id=policy_user.user_id,
+            receiver_id=admin_user.user_id,
+            subject="Urgent: National Buffer Stock & Dambulla Market Stabilization",
+            category="Price Stabilization",
+            priority="Urgent / Confidential",
+            message=(
+                "Analysis of regional market production indicates an impending shortfall of Leeks & Carrots "
+                "across Nuwara Eliya and Kandy supply corridors. We request immediate authorization to release "
+                "strategic vegetable reserves and coordinate inter-district logistics to prevent speculative price inflation."
+            ),
+            status="Action Taken",
+            is_read_by_receiver=True,
+            is_read_by_sender=True,
+            created_at=now - timedelta(days=2, hours=4),
+        )
+        db.add(c1)
+        db.commit()
+
+        # Reply to Thread 1 from Admin
+        r1 = OfficialCommunication(
+            sender_id=admin_user.user_id,
+            receiver_id=policy_user.user_id,
+            subject="Re: Urgent: National Buffer Stock & Dambulla Market Stabilization",
+            category="Price Stabilization",
+            priority="Urgent / Confidential",
+            message=(
+                "Directive acknowledged and reviewed by Central Agricultural Administration. "
+                "Strategic warehouse reserves in Welimada and Dambulla have been authorized for staged release. "
+                "Regional Agrarian Officers in Kandy and Matale have been notified."
+            ),
+            parent_id=c1.comm_id,
+            status="Action Taken",
+            is_read_by_receiver=True,
+            is_read_by_sender=True,
+            created_at=now - timedelta(days=1, hours=22),
+        )
+        db.add(r1)
+
+        # Thread 2: Monsoon Fertilizer & Yield Subsidy
+        c2 = OfficialCommunication(
+            sender_id=policy_user.user_id,
+            receiver_id=admin_user.user_id,
+            subject="Q3 Vegetable Subsidy & High-Yield Seed Quota Allocation",
+            category="Policy Advisory",
+            priority="High Priority",
+            message=(
+                "Proposal submitted for priority organic fertilizer and certified seed allocation for "
+                "smallholder vegetable clusters in Matale and Kandy to mitigate predicted monsoon precipitation shifts."
+            ),
+            status="Pending Admin Review",
+            is_read_by_receiver=False,
+            is_read_by_sender=True,
+            created_at=now - timedelta(hours=6),
+        )
+        db.add(c2)
+        db.commit()
+        return True
+    finally:
+        db.close()
 

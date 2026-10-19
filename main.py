@@ -11,6 +11,8 @@ Config.set("graphics", "width", "360")
 Config.set("graphics", "height", "640")
 Config.set("graphics", "resizable", "0")
 
+from kivy.clock import Clock
+Clock.max_iteration = 60
 from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivymd.app import MDApp
 
@@ -25,6 +27,7 @@ from screens.admin_create_user_screen import AdminCreateUserScreen
 from screens.admin_feedback_screen import AdminFeedbackScreen
 from screens.feedback_screen import FeedbackScreen
 from screens.price_production_history_screen import PriceProductionHistoryScreen
+from screens.policy_communication_screen import PolicyCommunicationScreen
 
 
 class AgriSenseApp(MDApp):
@@ -70,6 +73,7 @@ class AgriSenseApp(MDApp):
         sm.add_widget(AdminFeedbackScreen(name="admin_feedback"))
         sm.add_widget(FeedbackScreen(name="feedback"))
         sm.add_widget(PriceProductionHistoryScreen(name="price_history"))
+        sm.add_widget(PolicyCommunicationScreen(name="policy_communication"))
         return sm
 
     def _preload_ml_models_async(self):

@@ -134,3 +134,23 @@ class Feedback(Base):
     user_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)
     status = Column(String(20), default="new")
     submitted_at = Column(DateTime, default=datetime.utcnow)
+
+
+class OfficialCommunication(Base):
+    __tablename__ = "official_communication"
+    comm_id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)
+    receiver_id = Column(Integer, ForeignKey("user.user_id"), nullable=True)
+    subject = Column(String(200), nullable=False)
+    category = Column(String(60), default="Policy Advisory")
+    priority = Column(String(30), default="Normal")  # Normal, High Priority, Urgent / Confidential
+    message = Column(Text, nullable=False)
+    status = Column(String(40), default="Pending Admin Review")  # Pending Admin Review, In Review, Action Taken, Resolved
+    is_read_by_receiver = Column(Boolean, default=False)
+    is_read_by_sender = Column(Boolean, default=True)
+    parent_id = Column(Integer, ForeignKey("official_communication.comm_id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+    replies = relationship("OfficialCommunication", backref="parent", remote_side=[comm_id])

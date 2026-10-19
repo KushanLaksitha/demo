@@ -139,12 +139,29 @@ def run():
             db.commit()
 
             if role != "admin":
-                pred = db.query(Prediction).filter_by(crop_id=list(crops.values())[0].crop_id,
-                                                         prediction_type="price").first()
-                db.add(Alert(alert_type="price_spike",
-                              message=f"{list(crops.keys())[0]} price is forecast to rise next week in Matale.",
-                              prediction_id=pred.prediction_id if pred else None,
-                              user_id=u.user_id))
+                sample_role_alerts = {
+                    "farmer": [
+                        ("price_spike", f"Beans wholesale price predicted to spike to Rs.420/kg (+24%) in {dist}. Favorable window for early selling."),
+                        ("price_drop", f"Cabbage price forecast to drop to Rs.105/kg (-16%) in {dist}. Hold harvest or explore alternative markets."),
+                        ("heavy_rain", f"Heavy rainfall predicted (165mm) in {dist}. Protect crops from waterlogging and delay fertilizer application."),
+                        ("production_surplus", f"Beans harvest surplus expected (4,200 Mt, 137% of baseline) in {dist}. Plan distributed sales."),
+                        ("official_notice", f"Agrarian Services Advisory: Fall Armyworm (සේනා දළඹු) inspection active in {dist}. Report damage to AI officer."),
+                    ],
+                    "trader": [
+                        ("price_spike", f"Carrots wholesale price surging (+22%) in {dist} wholesale market due to transport constraints."),
+                        ("production_shortage", f"Leeks production shortage predicted (2,400 Mt, 63% of seasonal average). Premium pricing opportunity."),
+                        ("drought_risk", f"Dry spell forecast (22mm rain) in {dist}. Produce drying yards operating under clear skies."),
+                        ("official_notice", f"Dambulla Dedicated Economic Centre: Extended wholesale receiving hours active for produce traders."),
+                    ],
+                    "policymaker": [
+                        ("production_shortage", "National harvest shortage projected for Leeks and Carrots in Q3. Buffer stock intervention recommended."),
+                        ("production_surplus", f"Cabbage oversupply alert across {dist} (142% of baseline). Inter-district redistribution advised."),
+                        ("heavy_rain", f"Precipitation anomaly: Monsoon rainfall variance exceeding 170mm in {dist} watershed."),
+                        ("official_notice", "Ministry of Agriculture: Vegetable Price Stabilization and National Task Force convened."),
+                    ],
+                }
+                for atype, amsg in sample_role_alerts.get(role, []):
+                    db.add(Alert(alert_type=atype, message=amsg, user_id=u.user_id, is_read=False))
                 db.add(Recommendation(
                     message=f"Good time to plan harvesting {list(crops.keys())[1]} — demand trending up in Kandy.",
                     user_id=u.user_id, region_id=regions[dist].region_id))
@@ -157,6 +174,10 @@ def run():
                               user_id=first_user.user_id))
             db.commit()
 
+        # ---- sample official policy communications ----
+        from database.data_service import ensure_sample_communications_if_empty
+        ensure_sample_communications_if_empty()
+
         print("[Seed] Demo data inserted successfully.")
     finally:
         db.close()
@@ -164,3 +185,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+

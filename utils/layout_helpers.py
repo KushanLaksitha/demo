@@ -8,18 +8,12 @@ from kivy.clock import Clock
 
 
 def center_scroll_content(scrollview, box):
-    """Call once after `box` has been (re)populated. Adds symmetric
-    top/bottom padding to `box` so its content is vertically centred
-    inside `scrollview` whenever the content is shorter than the
-    viewport; once content overflows, padding collapses to 0 and it
-    behaves like a normal scrollable list."""
+    """Call once after `box` has been (re)populated. Vertically centers
+    content if shorter than viewport without creating recursive layout bindings."""
     if not scrollview or not box:
         return
-    _updating = [False]
 
     def _update(*_):
-        if _updating[0]:
-            return
         try:
             available = scrollview.height
             if available <= 0:
@@ -38,22 +32,16 @@ def center_scroll_content(scrollview, box):
                 left = top = right = bottom = pad
 
             content_without_padding = max(0, box.minimum_height - top - bottom)
+            if content_without_padding <= 0:
+                return
             extra = max(0, (available - content_without_padding) / 2)
 
-            if abs(top - extra) > 1:
-                _updating[0] = True
+            if abs(top - extra) > 2:
                 box.padding = (left, extra, right, extra)
-        except Exception as e:
-            print(f"[LayoutHelper] center_scroll_content update skipped: {e}")
-        finally:
-            _updating[0] = False
+        except Exception:
+            pass
 
-    try:
-        scrollview.bind(height=_update)
-        box.bind(minimum_height=_update)
-        Clock.schedule_once(_update, 0)
-    except Exception as e:
-        print(f"[LayoutHelper] center_scroll_content bind skipped: {e}")
+    Clock.schedule_once(_update, 0.05)
 
 
 def show_snackbar(text: str):

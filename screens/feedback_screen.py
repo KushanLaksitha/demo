@@ -204,9 +204,9 @@ KV = """
                     id: card_step4
                     orientation: "vertical"
                     size_hint_y: None
-                    height: dp(230)
+                    height: self.minimum_height
                     padding: dp(12)
-                    spacing: dp(8)
+                    spacing: dp(10)
                     radius: [14, 14, 14, 14]
                     md_bg_color: 1, 1, 1, 1
                     elevation: 1
@@ -232,13 +232,16 @@ KV = """
                         multiline: True
                         mode: "rectangle"
                         size_hint_y: None
-                        height: dp(90)
+                        height: dp(100)
+                        font_size: "13sp"
                         line_color_focus: 0.25, 0.62, 0.30, 1
+                        on_text: root.on_message_text_changed(self)
 
                     MDRaisedButton:
                         id: submit_btn
                         text: "SUBMIT FEEDBACK"
                         size_hint_x: 1
+                        size_hint_y: None
                         height: dp(44)
                         _radius: 10
                         md_bg_color: 0.25, 0.62, 0.30, 1
@@ -470,10 +473,19 @@ class FeedbackScreen(Screen):
             return text[len(prefix):].strip()
         return text
 
+    def on_message_text_changed(self, field):
+        """Auto-expand message_field downwards as user types more lines."""
+        text = field.text or ""
+        lines = len(field._lines) if hasattr(field, "_lines") and field._lines else (text.count("\n") + 1)
+        target_h = max(dp(90), dp(44) + lines * dp(22))
+        field.height = target_h
+
     def clear_form(self):
         self.reset_state()
         self._build_topic_chips()
         self._build_quick_pills()
+        if hasattr(self.ids, "message_field"):
+            self.ids.message_field.height = dp(90)
         show_snackbar("Feedback form cleared.")
 
     def send(self):

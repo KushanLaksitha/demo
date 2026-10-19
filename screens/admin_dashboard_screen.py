@@ -19,7 +19,7 @@ from utils.layout_helpers import show_snackbar
 
 from database.data_service import (
     get_all_users_for_admin, toggle_user_status_by_admin, update_user_role_by_admin,
-    delete_user_by_admin, get_average_rating
+    delete_user_by_admin, get_average_rating, broadcast_admin_alert
 )
 from database.auth_service import ALL_ROLES
 from utils.animations import stagger_fade_in
@@ -77,6 +77,20 @@ KV = """
                 on_release: root.go_to_feedback()
 
             MDIconButton:
+                icon: "bullhorn"
+                theme_text_color: "Custom"
+                text_color: 0.20, 0.55, 0.28, 1
+                tooltip_text: "Broadcast Notice / Alert"
+                on_release: root.open_broadcast_dialog()
+
+            MDIconButton:
+                icon: "shield-account"
+                theme_text_color: "Custom"
+                text_color: 0.20, 0.55, 0.28, 1
+                tooltip_text: "Policy Memos & Dispatches"
+                on_release: root.go_to_policy_communications()
+
+            MDIconButton:
                 icon: "logout"
                 theme_text_color: "Custom"
                 text_color: 0.78, 0.18, 0.18, 1
@@ -87,8 +101,8 @@ KV = """
         MDBoxLayout:
             size_hint_y: None
             height: dp(72)
-            padding: dp(14), dp(8), dp(14), dp(8)
-            spacing: dp(8)
+            padding: dp(12), dp(8), dp(12), dp(8)
+            spacing: dp(6)
             canvas.before:
                 Color:
                     rgba: 0.20, 0.55, 0.28, 1
@@ -100,7 +114,7 @@ KV = """
             MDBoxLayout:
                 orientation: "vertical"
                 spacing: dp(2)
-                size_hint_x: 0.48
+                size_hint_x: 0.38
                 pos_hint: {"center_y": 0.5}
 
                 MDLabel:
@@ -121,15 +135,16 @@ KV = """
             # Right: Action Buttons
             MDBoxLayout:
                 orientation: "horizontal"
-                spacing: dp(6)
-                size_hint_x: 0.52
+                spacing: dp(4)
+                size_hint_x: 0.62
                 pos_hint: {"center_y": 0.5}
 
                 MDRaisedButton:
                     id: create_user_nav_btn
-                    text: "+ New User"
+                    text: "+ User"
+                    font_size: "11sp"
                     size_hint: None, None
-                    size: dp(94), dp(36)
+                    size: dp(68), dp(36)
                     _radius: 8
                     elevation: 0
                     md_bg_color: 1, 1, 1, 0.25
@@ -138,14 +153,27 @@ KV = """
 
                 MDRaisedButton:
                     id: feedback_nav_btn
-                    text: "Feedback"
+                    text: "Reviews"
+                    font_size: "11sp"
                     size_hint: None, None
-                    size: dp(86), dp(36)
+                    size: dp(70), dp(36)
                     _radius: 8
                     elevation: 0
                     md_bg_color: 1, 1, 1, 0.20
                     text_color: 1, 1, 1, 1
                     on_release: root.go_to_feedback()
+
+                MDRaisedButton:
+                    id: policy_nav_btn
+                    text: "Memos"
+                    font_size: "11sp"
+                    size_hint: None, None
+                    size: dp(68), dp(36)
+                    _radius: 8
+                    elevation: 0
+                    md_bg_color: 1, 1, 1, 0.20
+                    text_color: 1, 1, 1, 1
+                    on_release: root.go_to_policy_communications()
 
 
         # ── ROLE FILTER CHIPS ───────────────────────────────────────────
@@ -263,6 +291,15 @@ class AdminDashboardScreen(Screen):
                 self.manager.current = "admin_feedback"
         except Exception as e:
             print(f"[Admin] go_to_feedback error: {e}")
+            show_snackbar(f"Navigation error: {e}")
+
+    def go_to_policy_communications(self):
+        try:
+            if self.manager:
+                self.manager.transition.direction = "left"
+                self.manager.current = "policy_communication"
+        except Exception as e:
+            print(f"[Admin] go_to_policy_communications error: {e}")
             show_snackbar(f"Navigation error: {e}")
 
     def logout(self):
@@ -509,3 +546,49 @@ class AdminDashboardScreen(Screen):
         if ok:
             self.load_users()
             self._update_banner()
+
+    def open_broadcast_dialog(self):
+        from kivymd.uix.textfield import MDTextField
+        content = MDBoxLayout(
+            orientation="vertical", spacing=dp(10),
+            size_hint_y=None, height=dp(110)
+        )
+        tf = MDTextField(
+            hint_text="Official announcement or advisory message...",
+            multiline=True,
+            max_height=dp(80),
+            size_hint_y=None,
+            height=dp(70),
+        )
+        content.add_widget(tf)
+
+        def _send(x):
+            msg = tf.text.strip()
+            if not msg:
+                show_snackbar("Please enter an announcement message.")
+                return
+            count = broadcast_admin_alert(msg, alert_type="official_notice")
+            if self.dialog:
+                self.dialog.dismiss()
+            show_snackbar(f"Notice broadcasted to {count} users!")
+
+        self.dialog = MDDialog(
+            title="Broadcast Official Notice",
+            type="custom",
+            content_cls=content,
+            buttons=[
+                MDFlatButton(
+                    text="CANCEL",
+                    theme_text_color="Custom",
+                    text_color=(0.5, 0.5, 0.5, 1),
+                    on_release=lambda x: self.dialog.dismiss()
+                ),
+                MDRaisedButton(
+                    text="BROADCAST",
+                    md_bg_color=(0.20, 0.55, 0.28, 1),
+                    text_color=(1, 1, 1, 1),
+                    on_release=_send
+                ),
+            ],
+        )
+        self.dialog.open()
